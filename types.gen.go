@@ -1327,7 +1327,7 @@ type EvidenceRange struct {
 
 // FileResult One scanned-file entry in a batchScanner report.
 type FileResult struct {
-	// FileHash MD5 of the file contents.
+	// FileHash MD5 of the matched file: equals `source_hash` for a `file` match, the matched OSS file's MD5 for a `snippet` match (differs from `source_hash`), and empty for a `none` match.
 	FileHash string `json:"file_hash"`
 
 	// MatchType Full-file match, partial (snippet) match, or no match.
@@ -1338,6 +1338,9 @@ type FileResult struct {
 
 	// Path The scanned file path.
 	Path string `json:"path"`
+
+	// SourceHash MD5 of the input file (from the WFP).
+	SourceHash string `json:"source_hash"`
 }
 
 // FileResultMatchType Full-file match, partial (snippet) match, or no match.
@@ -1502,6 +1505,9 @@ type MatchResult struct {
 
 	// MatchPercentage Snippet matches only; omitted for full-file matches.
 	MatchPercentage int `json:"match_percentage,omitempty"`
+
+	// OssFilePath Path of the matched file inside the OSS component.
+	OssFilePath string `json:"oss_file_path,omitempty"`
 
 	// OssLineRanges Snippet matches only — matched line ranges in the OSS file.
 	OssLineRanges []LineRange `json:"oss_line_ranges,omitempty"`
