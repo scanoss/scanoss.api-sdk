@@ -2206,6 +2206,7 @@ type GetNoticeContentParams struct {
 
 // GetScanRawParams defines parameters for GetScanRaw.
 type GetScanRawParams struct {
+	// Md5 File hash — 32-char hex MD5 or 16-char hex CRC64, per the engine's key type.
 	Md5 string `form:"md5" json:"md5"`
 }
 
