@@ -1290,7 +1290,7 @@ type EPSS struct {
 type ErrorBody struct {
 	Error struct {
 		// Code Stable machine-readable error identifier. Possible values:
-		//   - INVALID_BODY, INVALID_QUERY, INVALID_MD5, INVALID_RANGE
+		//   - INVALID_BODY, INVALID_QUERY, INVALID_FILE_HASH, INVALID_RANGE
 		//   - EMPTY_BATCH
 		//   - INVALID_PURL, COMPONENT_NOT_FOUND, VERSION_NOT_FOUND
 		//   - NOTICE_NOT_FOUND, FILE_NOT_FOUND, MZ_READ_FAILED
@@ -1663,8 +1663,8 @@ type ScanRawMatch struct {
 
 // ScanRawResponse defines model for ScanRawResponse.
 type ScanRawResponse struct {
-	FileMd5 *string         `json:"file_md5,omitempty"`
-	Matches *[]ScanRawMatch `json:"matches,omitempty"`
+	FileHash *string         `json:"file_hash,omitempty"`
+	Matches  *[]ScanRawMatch `json:"matches,omitempty"`
 }
 
 // ScanResult batchScanner multi-pass report: a `files` array of per-file match entries and a `components` map keyed by url_hash. Produced by /wfp/scan (not raw engine output).
@@ -1727,8 +1727,8 @@ type SearchCriteriaOnVersionNotFound string
 
 // SnippetCandidate defines model for SnippetCandidate.
 type SnippetCandidate struct {
-	FileMd5 *string `json:"file_md5,omitempty"`
-	Hits    *int    `json:"hits,omitempty"`
+	FileHash *string `json:"file_hash,omitempty"`
+	Hits     *int    `json:"hits,omitempty"`
 
 	// InputLineRanges Comma-separated line ranges in the posted WFP, e.g. "12-148".
 	InputLineRanges *string `json:"input_line_ranges,omitempty"`
@@ -1747,7 +1747,7 @@ type SnippetGroup struct {
 
 // SnippetResponse defines model for SnippetResponse.
 type SnippetResponse struct {
-	FileMd5       *string         `json:"file_md5,omitempty"`
+	FileHash      *string         `json:"file_hash,omitempty"`
 	FilePath      *string         `json:"file_path,omitempty"`
 	FileSize      *int            `json:"file_size,omitempty"`
 	SnippetGroups *[]SnippetGroup `json:"snippet_groups,omitempty"`
@@ -1903,6 +1903,9 @@ type Timeout = ErrorBody
 type PostScanComponentsParams struct {
 	// Urlhash One urlhash, or several comma-separated (`h1,h2,h3`).
 	Urlhash string `form:"urlhash" json:"urlhash"`
+
+	// Flags Engine flags bitmask (-F). Gate: allow_flags_override.
+	Flags *int `form:"flags,omitempty" json:"flags,omitempty"`
 }
 
 // SearchComponentsParams defines parameters for SearchComponents.
@@ -2206,8 +2209,23 @@ type GetNoticeContentParams struct {
 
 // GetScanRawParams defines parameters for GetScanRaw.
 type GetScanRawParams struct {
-	// Md5 File hash — 32-char hex MD5 or 16-char hex CRC64, per the engine's key type.
-	Md5 string `form:"md5" json:"md5"`
+	// Hash File hash — 32-char hex MD5 or 16-char hex CRC64, per the engine's key type. The legacy `md5` parameter is still accepted during rollout (`hash` takes priority); prefer `hash`.
+	Hash string `form:"hash" json:"hash"`
+
+	// Flags Engine flags bitmask (-F). Gate: allow_flags_override.
+	Flags *int `form:"flags,omitempty" json:"flags,omitempty"`
+
+	// Ranking Max component rank (-r). Gate: ranking_allowed.
+	Ranking *int `form:"ranking,omitempty" json:"ranking,omitempty"`
+
+	// MinSnippetHits Minimum snippet ID hits (--min-snippet-hits). Gate: match_config_allowed.
+	MinSnippetHits *int `form:"min_snippet_hits,omitempty" json:"min_snippet_hits,omitempty"`
+
+	// MinSnippetLines Minimum matched lines (--min-snippet-lines). Gate: match_config_allowed.
+	MinSnippetLines *int `form:"min_snippet_lines,omitempty" json:"min_snippet_lines,omitempty"`
+
+	// IgnoreFileExt Ignore file extension in snippet matching (--ignore-file-ext). Gate: match_config_allowed.
+	IgnoreFileExt *bool `form:"ignore_file_ext,omitempty" json:"ignore_file_ext,omitempty"`
 }
 
 // PostScanSnippetsTextBody defines parameters for PostScanSnippets.
@@ -2217,6 +2235,9 @@ type PostScanSnippetsTextBody = string
 type PostScanSnippetsParams struct {
 	// Threshold Minimum match threshold (percent).
 	Threshold *int `form:"threshold,omitempty" json:"threshold,omitempty"`
+
+	// Flags Engine flags bitmask (-F). Gate: allow_flags_override. (Snippet/ranking tuning applies to /v3/raw/scan only.)
+	Flags *int `form:"flags,omitempty" json:"flags,omitempty"`
 }
 
 // GetV3VulnerabilitiesCpesParams defines parameters for GetV3VulnerabilitiesCpes.
