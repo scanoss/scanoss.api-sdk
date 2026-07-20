@@ -95,6 +95,17 @@ const (
 	Snippet FileResultMatchType = "snippet"
 )
 
+// Defines values for ForwardAmbiguousCallCompleteness.
+const (
+	Complete ForwardAmbiguousCallCompleteness = "complete"
+	Partial  ForwardAmbiguousCallCompleteness = "partial"
+)
+
+// Defines values for ForwardAmbiguousCallReason.
+const (
+	InterfaceDispatchAmbiguous ForwardAmbiguousCallReason = "interface_dispatch_ambiguous"
+)
+
 // Defines values for InfoCode.
 const (
 	COMPONENTNOTFOUND InfoCode = "COMPONENT_NOT_FOUND"
@@ -117,6 +128,32 @@ const (
 	FieldAccess   MatchedOperationKind = "field_access"
 	Instantiation MatchedOperationKind = "instantiation"
 	TypeUsage     MatchedOperationKind = "type_usage"
+)
+
+// Defines values for ParameterConditionMatch.
+const (
+	ParameterConditionMatchType  ParameterConditionMatch = "type"
+	ParameterConditionMatchValue ParameterConditionMatch = "value"
+)
+
+// Defines values for ParameterConditionOperator.
+const (
+	ParameterConditionOperatorEqual ParameterConditionOperator = "=="
+	ParameterConditionOperatorRegex ParameterConditionOperator = "~="
+)
+
+// Defines values for ParameterContributionDerivation.
+const (
+	ParameterDerivationArgumentBitLength ParameterContributionDerivation = "argument_bit_length"
+	ParameterDerivationArgumentType      ParameterContributionDerivation = "argument_type"
+	ParameterDerivationArgumentValue     ParameterContributionDerivation = "argument_value"
+)
+
+// Defines values for ParameterRoleKind.
+const (
+	ParameterRoleMetadataContributing ParameterRoleKind = "metadata-contributing"
+	ParameterRoleNone                 ParameterRoleKind = "none"
+	ParameterRoleOperationDetermining ParameterRoleKind = "operation-determining"
 )
 
 // Defines values for ReadinessResponseStatus.
@@ -353,9 +390,12 @@ type CVSS struct {
 // CallArgument One argument passed at a call site with full data-flow provenance.
 type CallArgument struct {
 	// ArgumentExpression The exact argument expression as written in source.
-	ArgumentExpression string            `json:"argument_expression"`
-	ParameterIndex     int32             `json:"parameter_index"`
-	SourceNodes        *[]DataFlowSource `json:"source_nodes,omitempty"`
+	ArgumentExpression string `json:"argument_expression"`
+	ParameterIndex     int32  `json:"parameter_index"`
+
+	// ResolvedValue Statically resolved argument value when available.
+	ResolvedValue *string           `json:"resolved_value,omitempty"`
+	SourceNodes   *[]DataFlowSource `json:"source_nodes,omitempty"`
 
 	// Type Argument type inferred at the call site.
 	Type string `json:"type"`
@@ -366,19 +406,15 @@ type CallArgument struct {
 
 // CallNode One function/method in a call chain. The first node in a chain is
 // the entry point; subsequent nodes carry `entry_call` describing the
-// invocation that reached them. In API responses, the final node in each
-// emitted `call_chains[]` path is marked with `is_final: true`.
+// invocation that reached them. Array order identifies the final node.
 type CallNode struct {
 	CanonicalSignature string `json:"canonical_signature"`
 
 	// EntryCall The call site where one node in a chain invokes the next.
 	// Present on every chain node except the entry-point node.
-	EntryCall    *CallSite `json:"entry_call,omitempty"`
-	FilePath     *string   `json:"file_path,omitempty"`
-	FunctionName string    `json:"function_name"`
-
-	// IsFinal Present and true only on the last frame of each emitted call chain.
-	IsFinal         *bool                    `json:"is_final,omitempty"`
+	EntryCall       *CallSite                `json:"entry_call,omitempty"`
+	FilePath        *string                  `json:"file_path,omitempty"`
+	FunctionName    string                   `json:"function_name"`
 	OwnerVisibility *CallNodeOwnerVisibility `json:"owner_visibility,omitempty"`
 	ParameterTypes  []string                 `json:"parameter_types"`
 	ReturnType      string                   `json:"return_type"`
@@ -461,8 +497,7 @@ type ComponentCpesInfo struct {
 //     carrying that dep's OWN findings (per-dep, not merged across deps).
 //
 // `metadata` is passed through verbatim from crypto-finder's findings
-// schema. `call_chains` follows crypto-finder's callgraph 6.x schema, with
-// this API adding `is_final: true` to each chain's final frame.
+// schema. `call_chains` follows crypto-finder's ordered callgraph 6.x schema.
 type ComponentData struct {
 	// ActualMinedVersion Present only when the requested exact version was not present in
 	// `component_crypto_findings` and the server resolved to the highest mined version
@@ -472,8 +507,9 @@ type ComponentData struct {
 	ActualMinedVersion *string `json:"actual_mined_version,omitempty"`
 
 	// CryptoEntryPoints Per-block projection of the merged callgraph's `crypto_entry_points[]`
-	// (callgraph 6.x schema), narrowed to entries whose `reachable_findings`
-	// intersect this block's surviving assets. Passed through as raw JSON.
+	// signature-indexed reachability map (callgraph 6.x schema), narrowed
+	// to entries whose `reachable_findings` intersect this block's surviving
+	// assets. Operation-only catalog records are not retained or recreated.
 	// Populated only when `include_crypto_entry_points: true`.
 	//
 	// This field **replaced** the legacy `entry_point_index` present in
@@ -490,7 +526,9 @@ type ComponentData struct {
 	// Requirement Echo of the request requirement string when known.
 	Requirement *string `json:"requirement,omitempty"`
 
-	// Schemas Source crypto-finder schema versions for this component block.
+	// Schemas Source crypto-finder schema versions for this component block. The
+	// server returns `UNSUPPORTED_SCHEMA` rather than rendering producer data
+	// from a newer schema version than this deployment understands.
 	Schemas *ComponentSchemas `json:"schemas,omitempty"`
 
 	// SupportingCalls Deduped object-lifecycle calls (e.g. IV generation, key-size
@@ -633,6 +671,13 @@ type ComponentReachabilityRequest struct {
 	// Independent of `include_call_chains` and `include_supporting_calls`.
 	IncludeCryptoEntryPoints *bool `json:"include_crypto_entry_points,omitempty"`
 
+	// IncludeForwardCalls When true, attaches a bounded `forward_calls` graph to each asset.
+	// Forward traversal follows only real implementation edges and keeps
+	// argument expressions, resolved values, inferred types, provenance,
+	// candidate evidence, and explicit truncation state. When false or
+	// absent, responses retain their previous shape.
+	IncludeForwardCalls *bool `json:"include_forward_calls,omitempty"`
+
 	// IncludeRawCallgraph When true, `callgraph` at the top level of the response carries
 	// the unfiltered merged callgraph.
 	IncludeRawCallgraph *bool `json:"include_raw_callgraph,omitempty"`
@@ -652,7 +697,12 @@ type ComponentReachabilityRequest struct {
 	// positive integer to limit chains per asset. Values above 128 are
 	// rejected with HTTP 400.
 	MaxChainsPerAsset *int32 `json:"max_chains_per_asset,omitempty"`
-	Purl              string `json:"purl"`
+
+	// MaxForwardDepth Optional forward traversal depth. Applies only when
+	// `include_forward_calls: true`. When omitted, the producer default
+	// of 4 is used. Values outside 1..16 are rejected with HTTP 400.
+	MaxForwardDepth *int32 `json:"max_forward_depth,omitempty"`
+	Purl            string `json:"purl"`
 
 	// Requirement Version constraint. Accepts exact versions (`1.5.2`, `=1.5.2`) or
 	// SemVer constraint expressions (`>=1.5.0`, `^1.5.0`, `~1.5.0`,
@@ -688,6 +738,8 @@ type ComponentReachabilityResponse struct {
 	// - `INVALID_SEMVER` — the requirement is structurally invalid.
 	// - `COMPONENT_NOT_FOUND` — the purl has no mining results at any version.
 	// - `VERSION_NOT_FOUND` — no mined version matches the supplied requirement.
+	// - `UNSUPPORTED_SCHEMA` — stored findings, graph, annotation, or
+	//   rendered callgraph data uses a newer or invalid schema version.
 	// - `NO_INFO` — reachability data unavailable (stitch failed or timed out).
 	InfoCode    string  `json:"info_code"`
 	InfoMessage *string `json:"info_message,omitempty"`
@@ -729,7 +781,9 @@ type ComponentResult struct {
 	Version     string   `json:"version,omitempty"`
 }
 
-// ComponentSchemas Source crypto-finder schema versions for this component block.
+// ComponentSchemas Source crypto-finder schema versions for this component block. The
+// server returns `UNSUPPORTED_SCHEMA` rather than rendering producer data
+// from a newer schema version than this deployment understands.
 type ComponentSchemas struct {
 	Callgraph *string `json:"callgraph,omitempty"`
 	Findings  *string `json:"findings,omitempty"`
@@ -949,16 +1003,15 @@ type CryptoAlgorithmsResponse struct {
 // sub-objects. Consumers branch on `metadata.assetType`.
 //
 // `reachable` and `call_chains` are populated ONLY when `include_call_chains:
-// true`. `call_chains` follows crypto-finder's callgraph 6.x schema (each
-// chain is an ordered array of `CallNode` frame objects), with this API
-// adding `is_final: true` to each chain's last frame.
+// true`. `call_chains` follows crypto-finder's callgraph 6.x schema; each
+// chain is an ordered array of `CallNode` frame objects.
 // `supporting_call_ids` is populated ONLY when `include_supporting_calls:
+// true`. `forward_calls` is populated ONLY when `include_forward_calls:
 // true`.
 type CryptoAsset struct {
 	// CallChains Ordered call chains from entry points to this asset, following
-	// crypto-finder's callgraph 6.x schema. Each element is an array of
-	// call-chain frame objects (see `CallNode`); this API adds
-	// `is_final: true` to each chain's last frame. Present only when the
+	// crypto-finder's callgraph 6.x schema. Each element is an ordered
+	// array of call-chain frame objects (see `CallNode`). Present only when the
 	// reachability endpoint was called with `include_call_chains: true`.
 	CallChains *[][]CallNode `json:"call_chains,omitempty"`
 	EndLine    int32         `json:"end_line"`
@@ -966,11 +1019,18 @@ type CryptoAsset struct {
 	// FindingId Stable hash of the detection. Use as primary key.
 	FindingId string `json:"finding_id"`
 
+	// ForwardCalls Bounded forward call graph rooted at the function containing a finding.
+	// Only producer-resolved implementation edges are included. Unresolved
+	// dispatch candidates remain explicit in `ambiguous_calls`; the server
+	// never invents a target. `truncated` is true only when the depth, node,
+	// or edge budget prevents a complete traversal, independently of ambiguity.
+	ForwardCalls *ForwardCalls `json:"forward_calls,omitempty"`
+
 	// Match Exact source line that triggered the detection.
 	Match string `json:"match"`
 
 	// Metadata Pass-through metadata block as emitted by crypto-finder's findings
-	// envelope (v1.3). The shape is owned by crypto-finder, not by this
+	// envelope (v1.4). The shape is owned by crypto-finder, not by this
 	// service. Keys are CAMEL CASE (e.g. `assetType`, `algorithmName`,
 	// `protocolName`, `materialType`). `assetType` is the discriminator
 	// used by consumers that want to branch on the variant. All other keys
@@ -983,11 +1043,16 @@ type CryptoAsset struct {
 	// for `assetType: related-crypto-material` you'll see `materialType`,
 	// `materialAlgorithm`, `materialFormat`, `materialSize`.
 	// Schema evolution (new fields, new variants) is forward-compatible —
-	// this service does NOT re-curate or translate metadata.
+	// this service does NOT re-curate or translate metadata. Unknown keys and
+	// explicit provider evidence are preserved unchanged; the service does
+	// not synthesize provider or crypto-module claims.
 	Metadata CryptoFinderMetadata `json:"metadata"`
 
 	// Oid RFC 5280 / CBOM Object Identifier when applicable.
 	Oid *string `json:"oid,omitempty"`
+
+	// ParameterConditions Structured producer-owned parameter predicates.
+	ParameterConditions *[]ParameterCondition `json:"parameter_conditions,omitempty"`
 
 	// Reachable True iff at least one entry point reaches this asset. Present
 	// only when the reachability endpoint was called with
@@ -1006,9 +1071,22 @@ type CryptoAsset struct {
 // CryptoAssetSource defines model for CryptoAsset.Source.
 type CryptoAssetSource string
 
+// CryptoCall Canonical callable and argument contract for a crypto or supporting call.
+type CryptoCall struct {
+	Aliases            *[]string        `json:"aliases,omitempty"`
+	CanonicalSignature *string          `json:"canonical_signature,omitempty"`
+	DisplaySymbol      *string          `json:"display_symbol,omitempty"`
+	FunctionName       string           `json:"function_name"`
+	Line               int32            `json:"line"`
+	ParameterRoles     *[]ParameterRole `json:"parameter_roles,omitempty"`
+	ParameterTypes     *[]string        `json:"parameter_types,omitempty"`
+	Parameters         *[]CallArgument  `json:"parameters,omitempty"`
+	ReturnType         *string          `json:"return_type,omitempty"`
+}
+
 // CryptoEntryPoint One entry-point function that can reach one or more cryptographic
-// operations, as emitted by the callgraph 6.x `crypto_entry_points[]`
-// array. Passed through as raw JSON from the merged callgraph.
+// findings, as emitted by the callgraph 6.x `crypto_entry_points[]`
+// signature-indexed reachability projection. Passed through as raw JSON.
 // Populated only when `include_crypto_entry_points: true`.
 //
 // This is the projection that **replaced** the legacy `entry_point_index`
@@ -1023,6 +1101,7 @@ type CryptoEntryPoint struct {
 	FunctionName      string                           `json:"function_name"`
 	Method            string                           `json:"method"`
 	OwnerVisibility   *CryptoEntryPointOwnerVisibility `json:"owner_visibility,omitempty"`
+	ParameterRoles    *[]ParameterRole                 `json:"parameter_roles,omitempty"`
 	ParameterTypes    *[]string                        `json:"parameter_types,omitempty"`
 	ReachableFindings []ReachableFinding               `json:"reachable_findings"`
 
@@ -1039,7 +1118,7 @@ type CryptoEntryPointOwnerVisibility string
 type CryptoEntryPointVisibility string
 
 // CryptoFinderMetadata Pass-through metadata block as emitted by crypto-finder's findings
-// envelope (v1.3). The shape is owned by crypto-finder, not by this
+// envelope (v1.4). The shape is owned by crypto-finder, not by this
 // service. Keys are CAMEL CASE (e.g. `assetType`, `algorithmName`,
 // `protocolName`, `materialType`). `assetType` is the discriminator
 // used by consumers that want to branch on the variant. All other keys
@@ -1052,7 +1131,9 @@ type CryptoEntryPointVisibility string
 // for `assetType: related-crypto-material` you'll see `materialType`,
 // `materialAlgorithm`, `materialFormat`, `materialSize`.
 // Schema evolution (new fields, new variants) is forward-compatible —
-// this service does NOT re-curate or translate metadata.
+// this service does NOT re-curate or translate metadata. Unknown keys and
+// explicit provider evidence are preserved unchanged; the service does
+// not synthesize provider or crypto-module claims.
 type CryptoFinderMetadata struct {
 	Api *string `json:"api,omitempty"`
 
@@ -1169,7 +1250,11 @@ type DepTreeReachabilityRequest struct {
 	// `entry_point_index` field.
 	// Independent of `include_call_chains` and `include_supporting_calls`.
 	IncludeCryptoEntryPoints *bool `json:"include_crypto_entry_points,omitempty"`
-	IncludeRawCallgraph      *bool `json:"include_raw_callgraph,omitempty"`
+
+	// IncludeForwardCalls When true, attaches a bounded `forward_calls` graph to each asset.
+	// When false or absent, responses retain their previous shape.
+	IncludeForwardCalls *bool `json:"include_forward_calls,omitempty"`
+	IncludeRawCallgraph *bool `json:"include_raw_callgraph,omitempty"`
 
 	// IncludeSupportingCalls When true, populates `supporting_calls[]` at the top level of
 	// each `ComponentData` block (deduped object-lifecycle calls such
@@ -1184,6 +1269,11 @@ type DepTreeReachabilityRequest struct {
 	// MaxChainsPerAsset Per-asset cap on `call_chains[]` length. `0` (the default) = no cap.
 	// Positive integer sets a per-asset limit. Hard cap 128.
 	MaxChainsPerAsset *int32 `json:"max_chains_per_asset,omitempty"`
+
+	// MaxForwardDepth Optional forward traversal depth. Applies only when
+	// `include_forward_calls: true`. When omitted, the producer default
+	// of 4 is used. Values outside 1..16 are rejected with HTTP 400.
+	MaxForwardDepth *int32 `json:"max_forward_depth,omitempty"`
 }
 
 // DepTreeReachabilityResponse Response envelope for dep-tree reachability. Top-level shape:
@@ -1213,6 +1303,8 @@ type DepTreeReachabilityResponse struct {
 	// - `INVALID_REQUEST` — the request is structurally invalid in a
 	//   way not covered by `INVALID_PURL` or `INVALID_SEMVER`
 	//   (e.g. empty `dependencies` array).
+	// - `UNSUPPORTED_SCHEMA` — stored findings, graph, annotation, or
+	//   rendered callgraph data uses a newer or invalid schema version.
 	// - `NO_INFO` — reachability data unavailable (one or more deps
 	//   unmined, stitch failed, or request timed out). When caused by
 	//   missing deps, `missing_components` lists the unsatisfied entries.
@@ -1352,6 +1444,128 @@ type Finding struct {
 	CryptographicAssets []CryptoAsset `json:"cryptographic_assets"`
 	FilePath            string        `json:"file_path"`
 	Language            string        `json:"language"`
+}
+
+// ForwardAmbiguousCall Fail-closed unresolved dispatch group; candidates are evidence, not edges.
+type ForwardAmbiguousCall struct {
+	// CallSite Source invocation shared by every candidate in an unresolved dispatch group.
+	CallSite   ForwardAmbiguousCallSite    `json:"call_site"`
+	Candidates []ForwardAmbiguousCandidate `json:"candidates"`
+
+	// Completeness Whether call-site and candidate identities are complete.
+	Completeness ForwardAmbiguousCallCompleteness `json:"completeness"`
+
+	// GroupId Stable identifier for this call-site ambiguity group.
+	GroupId string                     `json:"group_id"`
+	Reason  ForwardAmbiguousCallReason `json:"reason"`
+}
+
+// ForwardAmbiguousCallCompleteness Whether call-site and candidate identities are complete.
+type ForwardAmbiguousCallCompleteness string
+
+// ForwardAmbiguousCallReason defines model for ForwardAmbiguousCall.Reason.
+type ForwardAmbiguousCallReason string
+
+// ForwardAmbiguousCallSite Source invocation shared by every candidate in an unresolved dispatch group.
+type ForwardAmbiguousCallSite struct {
+	Arity                    int32   `json:"arity"`
+	CallerCanonicalSignature *string `json:"caller_canonical_signature,omitempty"`
+	CallerFunctionKey        string  `json:"caller_function_key"`
+	CallerFunctionName       *string `json:"caller_function_name,omitempty"`
+	EndCol                   *int32  `json:"end_col,omitempty"`
+	Line                     *int32  `json:"line,omitempty"`
+	MethodName               string  `json:"method_name"`
+	StartCol                 *int32  `json:"start_col,omitempty"`
+}
+
+// ForwardAmbiguousCandidate One evidenced target candidate that was not promoted to a resolved edge.
+type ForwardAmbiguousCandidate struct {
+	CandidateId        string  `json:"candidate_id"`
+	CanonicalSignature *string `json:"canonical_signature,omitempty"`
+	DeclaringType      *string `json:"declaring_type,omitempty"`
+
+	// DependencyInfo Dependency component that owns a forward-reachable function.
+	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
+
+	// EntryCall Callable identity and argument data flow for a forward edge or candidate.
+	EntryCall      *ForwardCallSite `json:"entry_call,omitempty"`
+	FunctionKey    string           `json:"function_key"`
+	FunctionName   *string          `json:"function_name,omitempty"`
+	ParameterTypes []string         `json:"parameter_types"`
+	ReturnType     *string          `json:"return_type,omitempty"`
+}
+
+// ForwardCallAnchor The finding function from which forward traversal starts.
+type ForwardCallAnchor struct {
+	DisplaySymbol *string `json:"display_symbol,omitempty"`
+	FunctionKey   string  `json:"function_key"`
+	FunctionName  *string `json:"function_name,omitempty"`
+}
+
+// ForwardCallDependency Dependency component that owns a forward-reachable function.
+type ForwardCallDependency struct {
+	Module  string  `json:"module"`
+	Version *string `json:"version,omitempty"`
+}
+
+// ForwardCallEdge One real caller-to-callee implementation edge. `entry_call` carries the
+// callee canonical signature, aligned parameter types and indexes,
+// source expressions, resolved values, and recursive provenance.
+type ForwardCallEdge struct {
+	// EntryCall Callable identity and argument data flow for a forward edge or candidate.
+	EntryCall *ForwardCallSite `json:"entry_call,omitempty"`
+
+	// From Caller function key.
+	From string `json:"from"`
+
+	// To Callee function key.
+	To string `json:"to"`
+}
+
+// ForwardCallNode One deduplicated function reachable from the finding anchor.
+type ForwardCallNode struct {
+	CryptoRelevant *bool `json:"crypto_relevant,omitempty"`
+
+	// DependencyInfo Dependency component that owns a forward-reachable function.
+	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
+	Depth          int32                  `json:"depth"`
+	DisplaySymbol  *string                `json:"display_symbol,omitempty"`
+	FilePath       *string                `json:"file_path,omitempty"`
+	FunctionKey    string                 `json:"function_key"`
+	FunctionName   *string                `json:"function_name,omitempty"`
+
+	// SupportingCategory Known supporting-call category when the function is catalogued.
+	SupportingCategory *string `json:"supporting_category,omitempty"`
+}
+
+// ForwardCallSite Callable identity and argument data flow for a forward edge or candidate.
+type ForwardCallSite struct {
+	Aliases            *[]string       `json:"aliases,omitempty"`
+	CanonicalSignature *string         `json:"canonical_signature,omitempty"`
+	DisplaySymbol      *string         `json:"display_symbol,omitempty"`
+	FunctionName       *string         `json:"function_name,omitempty"`
+	Line               *int32          `json:"line,omitempty"`
+	ParameterTypes     *[]string       `json:"parameter_types,omitempty"`
+	Parameters         *[]CallArgument `json:"parameters,omitempty"`
+	ReturnType         *string         `json:"return_type,omitempty"`
+}
+
+// ForwardCalls Bounded forward call graph rooted at the function containing a finding.
+// Only producer-resolved implementation edges are included. Unresolved
+// dispatch candidates remain explicit in `ambiguous_calls`; the server
+// never invents a target. `truncated` is true only when the depth, node,
+// or edge budget prevents a complete traversal, independently of ambiguity.
+type ForwardCalls struct {
+	AmbiguousCalls *[]ForwardAmbiguousCall `json:"ambiguous_calls,omitempty"`
+
+	// Anchor The finding function from which forward traversal starts.
+	Anchor ForwardCallAnchor  `json:"anchor"`
+	Edges  *[]ForwardCallEdge `json:"edges,omitempty"`
+
+	// MaxDepth Applied traversal depth budget, not the deepest observed node.
+	MaxDepth  int32              `json:"max_depth"`
+	Nodes     *[]ForwardCallNode `json:"nodes,omitempty"`
+	Truncated bool               `json:"truncated"`
 }
 
 // GeoContributorsResponse defines model for GeoContributorsResponse.
@@ -1543,6 +1757,54 @@ type ObligationsResponse struct {
 
 	// Status Outcome of a licenses-service call (papi common StatusResponse).
 	Status *LookupStatusResponse `json:"status,omitempty"`
+}
+
+// ParameterCondition Parsed form of one crypto rule parameter predicate.
+type ParameterCondition struct {
+	Match    ParameterConditionMatch    `json:"match"`
+	Operator ParameterConditionOperator `json:"operator"`
+
+	// Raw Original predicate text.
+	Raw string `json:"raw"`
+
+	// Selector Argument selected by a structured parameter condition.
+	Selector ParameterSelector `json:"selector"`
+	Value    string            `json:"value"`
+}
+
+// ParameterConditionMatch defines model for ParameterCondition.Match.
+type ParameterConditionMatch string
+
+// ParameterConditionOperator defines model for ParameterCondition.Operator.
+type ParameterConditionOperator string
+
+// ParameterContribution defines model for ParameterContribution.
+type ParameterContribution struct {
+	Derivation *ParameterContributionDerivation `json:"derivation,omitempty"`
+	Property   *string                          `json:"property,omitempty"`
+}
+
+// ParameterContributionDerivation defines model for ParameterContribution.Derivation.
+type ParameterContributionDerivation string
+
+// ParameterRole Contract role and optional metadata derivation for one parameter.
+type ParameterRole struct {
+	Contributes *ParameterContribution `json:"contributes,omitempty"`
+	Index       int32                  `json:"index"`
+	Name        *string                `json:"name,omitempty"`
+	Role        ParameterRoleKind      `json:"role"`
+}
+
+// ParameterRoleKind defines model for ParameterRoleKind.
+type ParameterRoleKind string
+
+// ParameterSelector Argument selected by a structured parameter condition.
+type ParameterSelector struct {
+	// Index Zero-based positional index; null for a name-only selector.
+	Index *int32 `json:"index"`
+
+	// Name Parameter name; null for an index-only selector.
+	Name *string `json:"name"`
 }
 
 // RawScanResult Native SCANOSS engine scan output: an object keyed by each scanned
@@ -1786,17 +2048,22 @@ type StatusResponseStatus string
 type SupportingCall struct {
 	CanonicalSignature string `json:"canonical_signature"`
 
-	// Category Semantic category of this supporting call. Known values include
-	// `iv` (IV/nonce generation), `key` (key material setup), `param`
-	// (cipher parameter initialisation). New categories may be added
-	// as the schema evolves.
+	// Category Producer-owned semantic category. Contract lifecycle values are
+	// `factory`, `config`, `operation`, and `output`; other producer
+	// categories remain forward-compatible.
 	Category      *string `json:"category,omitempty"`
 	DisplaySymbol *string `json:"display_symbol,omitempty"`
 	EndLine       *int32  `json:"end_line,omitempty"`
 	FilePath      *string `json:"file_path,omitempty"`
 	FunctionKey   *string `json:"function_key,omitempty"`
 	FunctionName  string  `json:"function_name"`
-	StartLine     *int32  `json:"start_line,omitempty"`
+
+	// MatchedOperation The cryptographic operation matched by a detection rule.
+	MatchedOperation *MatchedOperation `json:"matched_operation,omitempty"`
+	StartLine        *int32            `json:"start_line,omitempty"`
+
+	// SupportingCall Canonical callable and argument contract for a crypto or supporting call.
+	SupportingCall *CryptoCall `json:"supporting_call,omitempty"`
 
 	// SupportingId Stable ID for this supporting call. Primary key for the foreign-key relationship.
 	SupportingId string `json:"supporting_id"`
