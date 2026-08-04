@@ -90,9 +90,9 @@ const (
 
 // Defines values for FileResultMatchType.
 const (
-	File    FileResultMatchType = "file"
-	None    FileResultMatchType = "none"
-	Snippet FileResultMatchType = "snippet"
+	FileResultMatchTypeFile    FileResultMatchType = "file"
+	FileResultMatchTypeNone    FileResultMatchType = "none"
+	FileResultMatchTypeSnippet FileResultMatchType = "snippet"
 )
 
 // Defines values for ForwardAmbiguousCallCompleteness.
@@ -108,11 +108,13 @@ const (
 
 // Defines values for InfoCode.
 const (
-	COMPONENTNOTFOUND InfoCode = "COMPONENT_NOT_FOUND"
-	INVALIDPURL       InfoCode = "INVALID_PURL"
-	REQUIREMENTNOTMET InfoCode = "REQUIREMENT_NOT_MET"
-	RESOLVEFAILED     InfoCode = "RESOLVE_FAILED"
-	VERSIONNOTFOUND   InfoCode = "VERSION_NOT_FOUND"
+	InfoCodeCOMPONENTNOTFOUND       InfoCode = "COMPONENT_NOT_FOUND"
+	InfoCodeINVALIDPURL             InfoCode = "INVALID_PURL"
+	InfoCodeRELEASENOTESUNAVAILABLE InfoCode = "RELEASE_NOTES_UNAVAILABLE"
+	InfoCodeREQUIREMENTNOTMET       InfoCode = "REQUIREMENT_NOT_MET"
+	InfoCodeRESOLVEFAILED           InfoCode = "RESOLVE_FAILED"
+	InfoCodeVERSIONNOTFOUND         InfoCode = "VERSION_NOT_FOUND"
+	InfoCodeWARNING                 InfoCode = "WARNING"
 )
 
 // Defines values for LookupStatusResponseStatus.
@@ -172,6 +174,13 @@ const (
 	Uploading ScanEnvelopeStatus = "uploading"
 )
 
+// Defines values for SearchCriteriaEncoded.
+const (
+	SearchCriteriaEncodedBase64Encoded SearchCriteriaEncoded = "base64_encoded"
+	SearchCriteriaEncodedNone          SearchCriteriaEncoded = "none"
+	SearchCriteriaEncodedUrlEncoded    SearchCriteriaEncoded = "url_encoded"
+)
+
 // Defines values for SearchCriteriaOnVersionNotFound.
 const (
 	SearchCriteriaOnVersionNotFoundShowAny       SearchCriteriaOnVersionNotFound = "show_any"
@@ -192,16 +201,23 @@ const (
 
 // Defines values for StatusResponseStatus.
 const (
-	FAILED                StatusResponseStatus = "FAILED"
-	SUCCEEDEDWITHWARNINGS StatusResponseStatus = "SUCCEEDED_WITH_WARNINGS"
-	SUCCESS               StatusResponseStatus = "SUCCESS"
-	WARNING               StatusResponseStatus = "WARNING"
+	StatusResponseStatusFAILED                StatusResponseStatus = "FAILED"
+	StatusResponseStatusSUCCEEDEDWITHWARNINGS StatusResponseStatus = "SUCCEEDED_WITH_WARNINGS"
+	StatusResponseStatusSUCCESS               StatusResponseStatus = "SUCCESS"
+	StatusResponseStatusWARNING               StatusResponseStatus = "WARNING"
 )
 
 // Defines values for VulnerabilitySource.
 const (
 	NVD VulnerabilitySource = "NVD"
 	OSV VulnerabilitySource = "OSV"
+)
+
+// Defines values for SearchEncoded.
+const (
+	SearchEncodedBase64Encoded SearchEncoded = "base64_encoded"
+	SearchEncodedNone          SearchEncoded = "none"
+	SearchEncodedUrlEncoded    SearchEncoded = "url_encoded"
 )
 
 // Defines values for SearchOnVersionNotFound.
@@ -213,6 +229,13 @@ const (
 	SearchOnVersionNotFoundStrict        SearchOnVersionNotFound = "strict"
 )
 
+// Defines values for GetComponentReleasesParamsEncoded.
+const (
+	GetComponentReleasesParamsEncodedBase64Encoded GetComponentReleasesParamsEncoded = "base64_encoded"
+	GetComponentReleasesParamsEncodedNone          GetComponentReleasesParamsEncoded = "none"
+	GetComponentReleasesParamsEncodedUrlEncoded    GetComponentReleasesParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetComponentStatusParamsOnVersionNotFound.
 const (
 	GetComponentStatusParamsOnVersionNotFoundShowAny       GetComponentStatusParamsOnVersionNotFound = "show_any"
@@ -220,6 +243,13 @@ const (
 	GetComponentStatusParamsOnVersionNotFoundShowClosestLt GetComponentStatusParamsOnVersionNotFound = "show_closest_lt"
 	GetComponentStatusParamsOnVersionNotFoundShowLatest    GetComponentStatusParamsOnVersionNotFound = "show_latest"
 	GetComponentStatusParamsOnVersionNotFoundStrict        GetComponentStatusParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetComponentStatusParamsEncoded.
+const (
+	GetComponentStatusParamsEncodedBase64Encoded GetComponentStatusParamsEncoded = "base64_encoded"
+	GetComponentStatusParamsEncodedNone          GetComponentStatusParamsEncoded = "none"
+	GetComponentStatusParamsEncodedUrlEncoded    GetComponentStatusParamsEncoded = "url_encoded"
 )
 
 // Defines values for GetV3CryptographyAlgorithmsParamsOnVersionNotFound.
@@ -231,6 +261,13 @@ const (
 	GetV3CryptographyAlgorithmsParamsOnVersionNotFoundStrict        GetV3CryptographyAlgorithmsParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetV3CryptographyAlgorithmsParamsEncoded.
+const (
+	GetV3CryptographyAlgorithmsParamsEncodedBase64Encoded GetV3CryptographyAlgorithmsParamsEncoded = "base64_encoded"
+	GetV3CryptographyAlgorithmsParamsEncodedNone          GetV3CryptographyAlgorithmsParamsEncoded = "none"
+	GetV3CryptographyAlgorithmsParamsEncodedUrlEncoded    GetV3CryptographyAlgorithmsParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound.
 const (
 	GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFoundShowAny       GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound = "show_any"
@@ -238,6 +275,13 @@ const (
 	GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFoundShowClosestLt GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound = "show_closest_lt"
 	GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFoundShowLatest    GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound = "show_latest"
 	GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFoundStrict        GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetV3CryptographyAlgorithmsRangeParamsEncoded.
+const (
+	GetV3CryptographyAlgorithmsRangeParamsEncodedBase64Encoded GetV3CryptographyAlgorithmsRangeParamsEncoded = "base64_encoded"
+	GetV3CryptographyAlgorithmsRangeParamsEncodedNone          GetV3CryptographyAlgorithmsRangeParamsEncoded = "none"
+	GetV3CryptographyAlgorithmsRangeParamsEncodedUrlEncoded    GetV3CryptographyAlgorithmsRangeParamsEncoded = "url_encoded"
 )
 
 // Defines values for GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFound.
@@ -249,6 +293,13 @@ const (
 	GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFoundStrict        GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded.
+const (
+	GetV3CryptographyAlgorithmsVersionsRangeParamsEncodedBase64Encoded GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded = "base64_encoded"
+	GetV3CryptographyAlgorithmsVersionsRangeParamsEncodedNone          GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded = "none"
+	GetV3CryptographyAlgorithmsVersionsRangeParamsEncodedUrlEncoded    GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3CryptographyHintsParamsOnVersionNotFound.
 const (
 	GetV3CryptographyHintsParamsOnVersionNotFoundShowAny       GetV3CryptographyHintsParamsOnVersionNotFound = "show_any"
@@ -256,6 +307,13 @@ const (
 	GetV3CryptographyHintsParamsOnVersionNotFoundShowClosestLt GetV3CryptographyHintsParamsOnVersionNotFound = "show_closest_lt"
 	GetV3CryptographyHintsParamsOnVersionNotFoundShowLatest    GetV3CryptographyHintsParamsOnVersionNotFound = "show_latest"
 	GetV3CryptographyHintsParamsOnVersionNotFoundStrict        GetV3CryptographyHintsParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetV3CryptographyHintsParamsEncoded.
+const (
+	GetV3CryptographyHintsParamsEncodedBase64Encoded GetV3CryptographyHintsParamsEncoded = "base64_encoded"
+	GetV3CryptographyHintsParamsEncodedNone          GetV3CryptographyHintsParamsEncoded = "none"
+	GetV3CryptographyHintsParamsEncodedUrlEncoded    GetV3CryptographyHintsParamsEncoded = "url_encoded"
 )
 
 // Defines values for GetV3CryptographyHintsRangeParamsOnVersionNotFound.
@@ -267,6 +325,13 @@ const (
 	GetV3CryptographyHintsRangeParamsOnVersionNotFoundStrict        GetV3CryptographyHintsRangeParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetV3CryptographyHintsRangeParamsEncoded.
+const (
+	GetV3CryptographyHintsRangeParamsEncodedBase64Encoded GetV3CryptographyHintsRangeParamsEncoded = "base64_encoded"
+	GetV3CryptographyHintsRangeParamsEncodedNone          GetV3CryptographyHintsRangeParamsEncoded = "none"
+	GetV3CryptographyHintsRangeParamsEncodedUrlEncoded    GetV3CryptographyHintsRangeParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3DependenciesDependenciesParamsOnVersionNotFound.
 const (
 	GetV3DependenciesDependenciesParamsOnVersionNotFoundShowAny       GetV3DependenciesDependenciesParamsOnVersionNotFound = "show_any"
@@ -274,6 +339,13 @@ const (
 	GetV3DependenciesDependenciesParamsOnVersionNotFoundShowClosestLt GetV3DependenciesDependenciesParamsOnVersionNotFound = "show_closest_lt"
 	GetV3DependenciesDependenciesParamsOnVersionNotFoundShowLatest    GetV3DependenciesDependenciesParamsOnVersionNotFound = "show_latest"
 	GetV3DependenciesDependenciesParamsOnVersionNotFoundStrict        GetV3DependenciesDependenciesParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetV3DependenciesDependenciesParamsEncoded.
+const (
+	GetV3DependenciesDependenciesParamsEncodedBase64Encoded GetV3DependenciesDependenciesParamsEncoded = "base64_encoded"
+	GetV3DependenciesDependenciesParamsEncodedNone          GetV3DependenciesDependenciesParamsEncoded = "none"
+	GetV3DependenciesDependenciesParamsEncodedUrlEncoded    GetV3DependenciesDependenciesParamsEncoded = "url_encoded"
 )
 
 // Defines values for GetV3GeoprovenanceCountriesParamsOnVersionNotFound.
@@ -285,6 +357,13 @@ const (
 	GetV3GeoprovenanceCountriesParamsOnVersionNotFoundStrict        GetV3GeoprovenanceCountriesParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetV3GeoprovenanceCountriesParamsEncoded.
+const (
+	GetV3GeoprovenanceCountriesParamsEncodedBase64Encoded GetV3GeoprovenanceCountriesParamsEncoded = "base64_encoded"
+	GetV3GeoprovenanceCountriesParamsEncodedNone          GetV3GeoprovenanceCountriesParamsEncoded = "none"
+	GetV3GeoprovenanceCountriesParamsEncodedUrlEncoded    GetV3GeoprovenanceCountriesParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3GeoprovenanceOriginParamsOnVersionNotFound.
 const (
 	GetV3GeoprovenanceOriginParamsOnVersionNotFoundShowAny       GetV3GeoprovenanceOriginParamsOnVersionNotFound = "show_any"
@@ -292,6 +371,13 @@ const (
 	GetV3GeoprovenanceOriginParamsOnVersionNotFoundShowClosestLt GetV3GeoprovenanceOriginParamsOnVersionNotFound = "show_closest_lt"
 	GetV3GeoprovenanceOriginParamsOnVersionNotFoundShowLatest    GetV3GeoprovenanceOriginParamsOnVersionNotFound = "show_latest"
 	GetV3GeoprovenanceOriginParamsOnVersionNotFoundStrict        GetV3GeoprovenanceOriginParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetV3GeoprovenanceOriginParamsEncoded.
+const (
+	GetV3GeoprovenanceOriginParamsEncodedBase64Encoded GetV3GeoprovenanceOriginParamsEncoded = "base64_encoded"
+	GetV3GeoprovenanceOriginParamsEncodedNone          GetV3GeoprovenanceOriginParamsEncoded = "none"
+	GetV3GeoprovenanceOriginParamsEncodedUrlEncoded    GetV3GeoprovenanceOriginParamsEncoded = "url_encoded"
 )
 
 // Defines values for GetLicensesComponentParamsOnVersionNotFound.
@@ -303,6 +389,13 @@ const (
 	GetLicensesComponentParamsOnVersionNotFoundStrict        GetLicensesComponentParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetLicensesComponentParamsEncoded.
+const (
+	GetLicensesComponentParamsEncodedBase64Encoded GetLicensesComponentParamsEncoded = "base64_encoded"
+	GetLicensesComponentParamsEncodedNone          GetLicensesComponentParamsEncoded = "none"
+	GetLicensesComponentParamsEncodedUrlEncoded    GetLicensesComponentParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3VulnerabilitiesCpesParamsOnVersionNotFound.
 const (
 	GetV3VulnerabilitiesCpesParamsOnVersionNotFoundShowAny       GetV3VulnerabilitiesCpesParamsOnVersionNotFound = "show_any"
@@ -312,6 +405,13 @@ const (
 	GetV3VulnerabilitiesCpesParamsOnVersionNotFoundStrict        GetV3VulnerabilitiesCpesParamsOnVersionNotFound = "strict"
 )
 
+// Defines values for GetV3VulnerabilitiesCpesParamsEncoded.
+const (
+	GetV3VulnerabilitiesCpesParamsEncodedBase64Encoded GetV3VulnerabilitiesCpesParamsEncoded = "base64_encoded"
+	GetV3VulnerabilitiesCpesParamsEncodedNone          GetV3VulnerabilitiesCpesParamsEncoded = "none"
+	GetV3VulnerabilitiesCpesParamsEncodedUrlEncoded    GetV3VulnerabilitiesCpesParamsEncoded = "url_encoded"
+)
+
 // Defines values for GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound.
 const (
 	GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFoundShowAny       GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound = "show_any"
@@ -319,6 +419,13 @@ const (
 	GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFoundShowClosestLt GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound = "show_closest_lt"
 	GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFoundShowLatest    GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound = "show_latest"
 	GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFoundStrict        GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound = "strict"
+)
+
+// Defines values for GetV3VulnerabilitiesVulnerabilitiesParamsEncoded.
+const (
+	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedBase64Encoded GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "base64_encoded"
+	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedNone          GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "none"
+	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedUrlEncoded    GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "url_encoded"
 )
 
 // AttributionFile defines model for AttributionFile.
@@ -1844,6 +1951,53 @@ type ReadinessResponse struct {
 // ReadinessResponseStatus defines model for ReadinessResponse.Status.
 type ReadinessResponseStatus string
 
+// Release One version's changelog entry (raw notes text + all_urls metadata).
+type Release struct {
+	Date         *string `json:"date,omitempty"`
+	ReleaseNotes *string `json:"release_notes,omitempty"`
+	Url          *string `json:"url,omitempty"`
+	Version      *string `json:"version,omitempty"`
+}
+
+// ReleaseBatchItem One batch entry — the resolved version's release, or a failure info code.
+type ReleaseBatchItem struct {
+	// InfoCode Per-item resolution outcome. `REQUIREMENT_NOT_MET` is informational
+	// (a nearest-version was substituted); the others mark failures.
+	InfoCode    *InfoCode `json:"info_code,omitempty"`
+	InfoMessage *string   `json:"info_message,omitempty"`
+	Purl        *string   `json:"purl,omitempty"`
+
+	// Release One version's changelog entry (raw notes text + all_urls metadata).
+	Release     *Release `json:"release,omitempty"`
+	Requirement *string  `json:"requirement,omitempty"`
+	Version     *string  `json:"version,omitempty"`
+}
+
+// ReleaseComponent The {purl, requirement, version} block echoed on the releases responses.
+type ReleaseComponent struct {
+	// InfoCode Per-item resolution outcome. `REQUIREMENT_NOT_MET` is informational
+	// (a nearest-version was substituted); the others mark failures.
+	InfoCode    *InfoCode `json:"info_code,omitempty"`
+	InfoMessage *string   `json:"info_message,omitempty"`
+	Purl        *string   `json:"purl,omitempty"`
+	Requirement *string   `json:"requirement,omitempty"`
+	Version     *string   `json:"version,omitempty"`
+}
+
+// ReleasesBatchResponse defines model for ReleasesBatchResponse.
+type ReleasesBatchResponse struct {
+	Components []ReleaseBatchItem `json:"components"`
+	Status     BatchStatus        `json:"status"`
+}
+
+// ReleasesResponse defines model for ReleasesResponse.
+type ReleasesResponse struct {
+	// Component The {purl, requirement, version} block echoed on the releases responses.
+	Component ReleaseComponent `json:"component"`
+	Releases  []Release        `json:"releases"`
+	Status    BatchStatus      `json:"status"`
+}
+
 // Request defines model for Request.
 type Request struct {
 	// Purl Package URL
@@ -1967,6 +2121,12 @@ type ScanServer struct {
 // matching, no related results). Honored by endpoints that support search
 // criteria — currently `/v3/license/evidence`.
 type SearchCriteria struct {
+	// Encoded Output encoding for content string values of the response
+	// (`none` default, `url_encoded`, `base64_encoded`). Control fields
+	// (`info_code`, `info_message`, `status`, `message`, `requirement`)
+	// and object keys are never encoded.
+	Encoded *SearchCriteriaEncoded `json:"encoded,omitempty"`
+
 	// MaxResultsPerPurl Caps the per-purl result array in the output. 0 = no limit.
 	MaxResultsPerPurl *int `json:"max_results_per_purl,omitempty"`
 
@@ -1981,6 +2141,12 @@ type SearchCriteria struct {
 	// ShowUrl Include a `url` in each result (placeholder — data source TBD).
 	ShowUrl *bool `json:"show_url,omitempty"`
 }
+
+// SearchCriteriaEncoded Output encoding for content string values of the response
+// (`none` default, `url_encoded`, `base64_encoded`). Control fields
+// (`info_code`, `info_message`, `status`, `message`, `requirement`)
+// and object keys are never encoded.
+type SearchCriteriaEncoded string
 
 // SearchCriteriaOnVersionNotFound Version fallback when the requested version has no data:
 // `strict` (no fallback), `show_latest`, `show_closest_lt`,
@@ -2124,6 +2290,9 @@ type PurlQuery = string
 // RequirementQuery defines model for RequirementQuery.
 type RequirementQuery = string
 
+// SearchEncoded defines model for SearchEncoded.
+type SearchEncoded string
+
 // SearchMaxResults defines model for SearchMaxResults.
 type SearchMaxResults = int
 
@@ -2166,6 +2335,26 @@ type ScanNotFound = ErrorBody
 // Timeout defines model for Timeout.
 type Timeout = ErrorBody
 
+// GetComponentReleasesParams defines parameters for GetComponentReleases.
+type GetComponentReleasesParams struct {
+	// Purl Package URL (e.g. `pkg:github/scanoss/engine`)
+	Purl PurlQuery `form:"purl" json:"purl"`
+
+	// Requirement Optional version requirement (e.g. `v5.4.5`)
+	Requirement *RequirementQuery `form:"requirement,omitempty" json:"requirement,omitempty"`
+
+	// ShowRelatedResults Enable the source-purl fallback lookup.
+	ShowRelatedResults *SearchShowRelated `form:"show_related_results,omitempty" json:"show_related_results,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetComponentReleasesParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
+	Limit   *int                               `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset  *int                               `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetComponentReleasesParamsEncoded defines parameters for GetComponentReleases.
+type GetComponentReleasesParamsEncoded string
+
 // PostScanComponentsParams defines parameters for PostScanComponents.
 type PostScanComponentsParams struct {
 	// Urlhash One urlhash, or several comma-separated (`h1,h2,h3`).
@@ -2207,10 +2396,16 @@ type GetComponentStatusParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetComponentStatusParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetComponentStatusParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetComponentStatusParamsOnVersionNotFound defines parameters for GetComponentStatus.
 type GetComponentStatusParamsOnVersionNotFound string
+
+// GetComponentStatusParamsEncoded defines parameters for GetComponentStatus.
+type GetComponentStatusParamsEncoded string
 
 // GetComponentVersionsParams defines parameters for GetComponentVersions.
 type GetComponentVersionsParams struct {
@@ -2238,10 +2433,16 @@ type GetV3CryptographyAlgorithmsParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3CryptographyAlgorithmsParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3CryptographyAlgorithmsParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3CryptographyAlgorithmsParamsOnVersionNotFound defines parameters for GetV3CryptographyAlgorithms.
 type GetV3CryptographyAlgorithmsParamsOnVersionNotFound string
+
+// GetV3CryptographyAlgorithmsParamsEncoded defines parameters for GetV3CryptographyAlgorithms.
+type GetV3CryptographyAlgorithmsParamsEncoded string
 
 // GetV3CryptographyAlgorithmsRangeParams defines parameters for GetV3CryptographyAlgorithmsRange.
 type GetV3CryptographyAlgorithmsRangeParams struct {
@@ -2262,10 +2463,16 @@ type GetV3CryptographyAlgorithmsRangeParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3CryptographyAlgorithmsRangeParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound defines parameters for GetV3CryptographyAlgorithmsRange.
 type GetV3CryptographyAlgorithmsRangeParamsOnVersionNotFound string
+
+// GetV3CryptographyAlgorithmsRangeParamsEncoded defines parameters for GetV3CryptographyAlgorithmsRange.
+type GetV3CryptographyAlgorithmsRangeParamsEncoded string
 
 // GetV3CryptographyAlgorithmsVersionsRangeParams defines parameters for GetV3CryptographyAlgorithmsVersionsRange.
 type GetV3CryptographyAlgorithmsVersionsRangeParams struct {
@@ -2286,10 +2493,16 @@ type GetV3CryptographyAlgorithmsVersionsRangeParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFound defines parameters for GetV3CryptographyAlgorithmsVersionsRange.
 type GetV3CryptographyAlgorithmsVersionsRangeParamsOnVersionNotFound string
+
+// GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded defines parameters for GetV3CryptographyAlgorithmsVersionsRange.
+type GetV3CryptographyAlgorithmsVersionsRangeParamsEncoded string
 
 // GetV3CryptographyHintsParams defines parameters for GetV3CryptographyHints.
 type GetV3CryptographyHintsParams struct {
@@ -2310,10 +2523,16 @@ type GetV3CryptographyHintsParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3CryptographyHintsParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3CryptographyHintsParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3CryptographyHintsParamsOnVersionNotFound defines parameters for GetV3CryptographyHints.
 type GetV3CryptographyHintsParamsOnVersionNotFound string
+
+// GetV3CryptographyHintsParamsEncoded defines parameters for GetV3CryptographyHints.
+type GetV3CryptographyHintsParamsEncoded string
 
 // GetV3CryptographyHintsRangeParams defines parameters for GetV3CryptographyHintsRange.
 type GetV3CryptographyHintsRangeParams struct {
@@ -2334,10 +2553,16 @@ type GetV3CryptographyHintsRangeParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3CryptographyHintsRangeParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3CryptographyHintsRangeParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3CryptographyHintsRangeParamsOnVersionNotFound defines parameters for GetV3CryptographyHintsRange.
 type GetV3CryptographyHintsRangeParamsOnVersionNotFound string
+
+// GetV3CryptographyHintsRangeParamsEncoded defines parameters for GetV3CryptographyHintsRange.
+type GetV3CryptographyHintsRangeParamsEncoded string
 
 // GetV3DependenciesDependenciesParams defines parameters for GetV3DependenciesDependencies.
 type GetV3DependenciesDependenciesParams struct {
@@ -2358,10 +2583,16 @@ type GetV3DependenciesDependenciesParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3DependenciesDependenciesParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3DependenciesDependenciesParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3DependenciesDependenciesParamsOnVersionNotFound defines parameters for GetV3DependenciesDependencies.
 type GetV3DependenciesDependenciesParamsOnVersionNotFound string
+
+// GetV3DependenciesDependenciesParamsEncoded defines parameters for GetV3DependenciesDependencies.
+type GetV3DependenciesDependenciesParamsEncoded string
 
 // GetFileContentParams defines parameters for GetFileContent.
 type GetFileContentParams struct {
@@ -2391,10 +2622,16 @@ type GetV3GeoprovenanceCountriesParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3GeoprovenanceCountriesParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3GeoprovenanceCountriesParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3GeoprovenanceCountriesParamsOnVersionNotFound defines parameters for GetV3GeoprovenanceCountries.
 type GetV3GeoprovenanceCountriesParamsOnVersionNotFound string
+
+// GetV3GeoprovenanceCountriesParamsEncoded defines parameters for GetV3GeoprovenanceCountries.
+type GetV3GeoprovenanceCountriesParamsEncoded string
 
 // GetV3GeoprovenanceOriginParams defines parameters for GetV3GeoprovenanceOrigin.
 type GetV3GeoprovenanceOriginParams struct {
@@ -2415,10 +2652,16 @@ type GetV3GeoprovenanceOriginParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3GeoprovenanceOriginParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3GeoprovenanceOriginParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3GeoprovenanceOriginParamsOnVersionNotFound defines parameters for GetV3GeoprovenanceOrigin.
 type GetV3GeoprovenanceOriginParamsOnVersionNotFound string
+
+// GetV3GeoprovenanceOriginParamsEncoded defines parameters for GetV3GeoprovenanceOrigin.
+type GetV3GeoprovenanceOriginParamsEncoded string
 
 // GetLicensesComponentParams defines parameters for GetLicensesComponent.
 type GetLicensesComponentParams struct {
@@ -2439,10 +2682,16 @@ type GetLicensesComponentParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetLicensesComponentParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetLicensesComponentParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetLicensesComponentParamsOnVersionNotFound defines parameters for GetLicensesComponent.
 type GetLicensesComponentParamsOnVersionNotFound string
+
+// GetLicensesComponentParamsEncoded defines parameters for GetLicensesComponent.
+type GetLicensesComponentParamsEncoded string
 
 // GetLicensesDetailsParams defines parameters for GetLicensesDetails.
 type GetLicensesDetailsParams struct {
@@ -2526,10 +2775,16 @@ type GetV3VulnerabilitiesCpesParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3VulnerabilitiesCpesParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3VulnerabilitiesCpesParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3VulnerabilitiesCpesParamsOnVersionNotFound defines parameters for GetV3VulnerabilitiesCpes.
 type GetV3VulnerabilitiesCpesParamsOnVersionNotFound string
+
+// GetV3VulnerabilitiesCpesParamsEncoded defines parameters for GetV3VulnerabilitiesCpes.
+type GetV3VulnerabilitiesCpesParamsEncoded string
 
 // GetV3VulnerabilitiesVulnerabilitiesParams defines parameters for GetV3VulnerabilitiesVulnerabilities.
 type GetV3VulnerabilitiesVulnerabilitiesParams struct {
@@ -2550,10 +2805,16 @@ type GetV3VulnerabilitiesVulnerabilitiesParams struct {
 
 	// OnVersionNotFound Version fallback strategy (not applied to range endpoints).
 	OnVersionNotFound *GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound `form:"on_version_not_found,omitempty" json:"on_version_not_found,omitempty"`
+
+	// Encoded Output encoding for content string values (`none` default, `url_encoded`, `base64_encoded`); control fields and object keys are never encoded.
+	Encoded *GetV3VulnerabilitiesVulnerabilitiesParamsEncoded `form:"encoded,omitempty" json:"encoded,omitempty"`
 }
 
 // GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound defines parameters for GetV3VulnerabilitiesVulnerabilities.
 type GetV3VulnerabilitiesVulnerabilitiesParamsOnVersionNotFound string
+
+// GetV3VulnerabilitiesVulnerabilitiesParamsEncoded defines parameters for GetV3VulnerabilitiesVulnerabilities.
+type GetV3VulnerabilitiesVulnerabilitiesParamsEncoded string
 
 // PostScanBatchParams defines parameters for PostScanBatch.
 type PostScanBatchParams struct {
@@ -2568,6 +2829,9 @@ type PostScanBatchParams struct {
 type PostScanDirectMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
+
+// PostComponentsReleasesJSONRequestBody defines body for PostComponentsReleases for application/json ContentType.
+type PostComponentsReleasesJSONRequestBody = BatchRequest
 
 // PostScanComponentsJSONRequestBody defines body for PostScanComponents for application/json ContentType.
 type PostScanComponentsJSONRequestBody = ScanSbom
