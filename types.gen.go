@@ -34,6 +34,13 @@ const (
 	CallNodeVisibilityPublic         CallNodeVisibility = "public"
 )
 
+// Defines values for ComponentDataMethod.
+const (
+	Exact                      ComponentDataMethod = "exact"
+	HighestPatchSameMajorMinor ComponentDataMethod = "highest_patch_same_major_minor"
+	Range                      ComponentDataMethod = "range"
+)
+
 // Defines values for ComponentHealthStatus.
 const (
 	ComponentHealthStatusDisabled ComponentHealthStatus = "disabled"
@@ -428,6 +435,25 @@ const (
 	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedUrlEncoded    GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "url_encoded"
 )
 
+// AppliedDependencyOverride One closure node whose recorded version was replaced by a version the
+// client resolved elsewhere in the request — the same asked/served/flag
+// triple as the block, at dependency granularity.
+type AppliedDependencyOverride struct {
+	// AppliedVersion The version actually used during expansion — the pin, or the
+	// highest serveable patch of the pin's bucket.
+	AppliedVersion string `json:"applied_version"`
+
+	// Fallback `true` iff `applied_version` differs from `requested_version`.
+	Fallback bool   `json:"fallback"`
+	Purl     string `json:"purl"`
+
+	// RequestedVersion The version the client pinned for this purl.
+	RequestedVersion string `json:"requested_version"`
+
+	// StoredVersion The version `component_deps` recorded at mining time.
+	StoredVersion string `json:"stored_version"`
+}
+
 // AttributionFile defines model for AttributionFile.
 type AttributionFile struct {
 	// AttributionUrl URL to the full content of the attribution file.
@@ -594,24 +620,45 @@ type ComponentCpesInfo struct {
 	Version     *string   `json:"version,omitempty"`
 }
 
-// ComponentData Per-component reachability block. Each `data[]` element corresponds to
-// one component:
+// ComponentData Per-component reachability block.
 //
-//   - For `/component`, `data` has length 1 — the target with all merged
-//     transitive findings collapsed in (own + indirect already
-//     discriminated by `cryptographic_asset.source`).
-//   - For `/dep-tree`, `data` has one element per supplied dep, each
-//     carrying that dep's OWN findings (per-dep, not merged across deps).
+//   - For `/component`, `data` has length 1 and carries ONLY the shipped
+//     fields (purl, version, requirement, actual_mined_version, findings,
+//     finding_count, schemas, crypto_entry_points, supporting_calls) — its
+//     contract is unchanged from previous releases.
+//   - For `/dep-tree`, `data` has one element per supplied dependency, in
+//     request order, and each block additionally carries its OWN
+//     `info_code` plus the resolution-provenance fields below. One
+//     dependency's outcome never suppresses another's data. Identical
+//     duplicate entries collapse into a single block.
+//
+// Every block — on either endpoint — reports the component's full
+// contained tree: its own findings plus findings reachable through its
+// own recorded dependency closure, discriminated by
+// `cryptographic_asset.source` (`direct` / `indirect`).
+//
+// `finding_id` identifies a detection **within its enclosing block only**.
+// The same detection carries a different `finding_id` in a dependent's
+// block than in its own component's block, because the producer derives
+// the id from a path that is prefixed with `module@version/` for
+// dependency code. To deduplicate across blocks, key on the owning
+// component's `purl` + `version` together with the finding's `file_path`
+// and `start_line`.
 //
 // `metadata` is passed through verbatim from crypto-finder's findings
 // schema. `call_chains` follows crypto-finder's ordered callgraph 6.x schema.
 type ComponentData struct {
-	// ActualMinedVersion Present only when the requested exact version was not present in
-	// `component_crypto_findings` and the server resolved to the highest mined version
-	// in the same `major.minor` bucket, treating it as a representative for
-	// the requested version. Absent on exact matches and on range-constraint
-	// resolutions (those echo the original constraint in `requirement`).
+	// ActualMinedVersion Pre-existing fallback signal, emitted exactly as previous releases
+	// on BOTH endpoints: present only when the served version differs
+	// from the requested exact version, carrying the same value as
+	// `version`. Absent on exact matches and range resolutions.
 	ActualMinedVersion *string `json:"actual_mined_version,omitempty"`
+
+	// AppliedDependencyOverrides Closure nodes whose stored version was replaced by a version the
+	// client pinned elsewhere in the same `/dep-tree` request. `READY`
+	// blocks only, present only when non-empty — the only way to see
+	// that a pin reached inside this root's dependency closure.
+	AppliedDependencyOverrides *[]AppliedDependencyOverride `json:"applied_dependency_overrides,omitempty"`
 
 	// CryptoEntryPoints Per-block projection of the merged callgraph's `crypto_entry_points[]`
 	// signature-indexed reachability map (callgraph 6.x schema), narrowed
@@ -623,15 +670,52 @@ type ComponentData struct {
 	// callgraph schemas prior to 6.x.
 	CryptoEntryPoints *[]CryptoEntryPoint `json:"crypto_entry_points,omitempty"`
 
+	// DependencyResolutionErrors Client-pinned dependency versions this root's closure needs but
+	// that have no serveable patch in their bucket. Makes only this
+	// block `DEPENDENCY_UNRESOLVED`; sibling blocks are unaffected.
+	// These blocks are NOT listed in `missing_components`.
+	DependencyResolutionErrors *[]DependencyResolutionError `json:"dependency_resolution_errors,omitempty"`
+
+	// Fallback ALWAYS present on `/dep-tree` blocks whose resolution produced a
+	// served version: `true` iff that version differs from the requested
+	// exact pin; explicit `false` on exact matches and range resolutions.
+	// Omitted only when resolution never produced a version.
+	Fallback *bool `json:"fallback,omitempty"`
+
 	// FindingCount Total cryptographic_assets count across all findings[] in this
 	// block. POST-PRUNE — when a filter is active, reflects surviving
 	// assets, NOT the unfiltered universe.
 	FindingCount int32     `json:"finding_count"`
 	Findings     []Finding `json:"findings"`
-	Purl         string    `json:"purl"`
+
+	// InfoCode This block's own outcome. `/dep-tree` only — `/component` carries
+	// the outcome on its envelope, exactly as previous releases.
+	InfoCode *ReachabilityInfoCode `json:"info_code,omitempty"`
+
+	// InfoMessage Human-readable detail for this block's outcome.
+	InfoMessage *string `json:"info_message,omitempty"`
+
+	// Method How the served version was selected (`/dep-tree` only). `exact` —
+	// the requested version was served. `range` — a semver constraint
+	// resolved to a mined version inside it.
+	// `highest_patch_same_major_minor` — the requested exact version was
+	// not serveable and the highest serveable patch in the same
+	// `major.minor` bucket was served instead (paired with
+	// `fallback: true`; the block stays `READY`).
+	Method *ComponentDataMethod `json:"method,omitempty"`
+	Purl   string               `json:"purl"`
+
+	// RequestedVersion What the client asked for — the exact version on a pin, or the
+	// requirement string itself on a range. `/dep-tree` only.
+	RequestedVersion *string `json:"requested_version,omitempty"`
 
 	// Requirement Echo of the request requirement string when known.
 	Requirement *string `json:"requirement,omitempty"`
+
+	// ResolvedVersion Issue #69's name for the served version; same value as `version`.
+	// Present on `/dep-tree` blocks whose resolution produced a served
+	// version.
+	ResolvedVersion *string `json:"resolved_version,omitempty"`
 
 	// Schemas Source crypto-finder schema versions for this component block. The
 	// server returns `UNSUPPORTED_SCHEMA` rather than rendering producer data
@@ -649,8 +733,21 @@ type ComponentData struct {
 	// - `cryptographic_asset.supporting_call_ids[]` (per-asset breadcrumb)
 	// - `crypto_entry_points[].reachable_supporting_calls[].supporting_id`
 	SupportingCalls *[]SupportingCall `json:"supporting_calls,omitempty"`
-	Version         string            `json:"version"`
+
+	// Version The version actually served — unchanged in name and meaning from
+	// previous releases (issue #69 refers to this value as
+	// `resolved_version`, shipped alongside on `/dep-tree` blocks).
+	Version string `json:"version"`
 }
+
+// ComponentDataMethod How the served version was selected (`/dep-tree` only). `exact` —
+// the requested version was served. `range` — a semver constraint
+// resolved to a mined version inside it.
+// `highest_patch_same_major_minor` — the requested exact version was
+// not serveable and the highest serveable patch in the same
+// `major.minor` bucket was served instead (paired with
+// `fallback: true`; the block stays `READY`).
+type ComponentDataMethod string
 
 // ComponentHealth Status of one dependency in the readiness response.
 type ComponentHealth struct {
@@ -839,17 +936,12 @@ type ComponentReachabilityResponse struct {
 	Callgraph *map[string]interface{} `json:"callgraph,omitempty"`
 	Data      *[]ComponentData        `json:"data,omitempty"`
 
-	// InfoCode One of:
-	// - `READY` — reachability data computed successfully.
-	// - `INVALID_PURL` — the supplied PURL could not be parsed.
-	// - `INVALID_SEMVER` — the requirement is structurally invalid.
-	// - `COMPONENT_NOT_FOUND` — the purl has no mining results at any version.
-	// - `VERSION_NOT_FOUND` — no mined version matches the supplied requirement.
-	// - `UNSUPPORTED_SCHEMA` — stored findings, graph, annotation, or
-	//   rendered callgraph data uses a newer or invalid schema version.
-	// - `NO_INFO` — reachability data unavailable (stitch failed or timed out).
-	InfoCode    string  `json:"info_code"`
-	InfoMessage *string `json:"info_message,omitempty"`
+	// InfoCode Outcome for this single component, exactly as previous releases —
+	// a bucket-fallback result stays `READY` with `actual_mined_version`
+	// set. `DEPENDENCY_UNRESOLVED` and `INVALID_REQUEST` are not used by
+	// this endpoint.
+	InfoCode    ReachabilityInfoCode `json:"info_code"`
+	InfoMessage *string              `json:"info_message,omitempty"`
 
 	// RulesVersion Echoed on READY — the rules_version active for this row.
 	RulesVersion *string `json:"rules_version,omitempty"`
@@ -1388,10 +1480,31 @@ type DepTreeReachabilityRequest struct {
 // status, unmatched_signatures, callgraph}`.
 //
 // There is no `root` field — the dependency tree is self-contained.
-// `data` is an array with one `ComponentData` block per supplied dep.
-// Each block carries that dep's own findings (per-dep, not merged
-// across deps). Component identity (`purl`, `version`, `requirement`)
-// lives inside each `data[]` element, not at the top level.
+//
+// This endpoint is a **batch of independent `/component` evaluations**.
+// `data` has exactly one `ComponentData` block per supplied dependency,
+// in request order, and each block carries its OWN `info_code`. One
+// dependency lacking data never suppresses another's: expect blocks with
+// findings and blocks without in the same response, and branch per block
+// rather than on the envelope. Component identity (`purl`, `version`,
+// `requirement`) lives inside each `data[]` element, not at the top level.
+//
+// Each block reports that component's full contained tree — its own
+// crypto plus crypto reached through its own recorded dependency closure
+// (`source: "indirect"`). There is no cross-set stitch over the supplied
+// list: a chain A→B→C is reported inside A's block, whether or not C was
+// requested.
+//
+// **Client-resolved versions are global.** Every exact version in
+// `dependencies[]` is treated as authoritative for that component
+// wherever it appears, including inside another root's closure. Supplying
+// two different exact versions for the same component rejects the whole
+// request with `INVALID_REQUEST`. Identical duplicate entries are legal
+// and collapse into a single block, in first-occurrence order.
+//
+// This is best-effort membership from a flattened dependency store plus
+// the client's pins. It is **not** Maven-coherent re-resolution and does
+// not reconstruct direct-edge lineage or dependency mediation.
 //
 // `unmatched_signatures` and `callgraph` live at the TOP LEVEL.
 type DepTreeReachabilityResponse struct {
@@ -1401,29 +1514,30 @@ type DepTreeReachabilityResponse struct {
 	Callgraph *map[string]interface{} `json:"callgraph,omitempty"`
 	Data      *[]ComponentData        `json:"data,omitempty"`
 
-	// InfoCode One of:
-	// - `READY` — reachability data computed successfully.
-	// - `INVALID_PURL` — a supplied PURL could not be parsed.
-	// - `INVALID_SEMVER` — a requirement is structurally invalid
-	//   (e.g. empty string) or is a valid constraint but no mined
-	//   version satisfies it (version not in catalog).
-	// - `INVALID_REQUEST` — the request is structurally invalid in a
-	//   way not covered by `INVALID_PURL` or `INVALID_SEMVER`
-	//   (e.g. empty `dependencies` array).
-	// - `UNSUPPORTED_SCHEMA` — stored findings, graph, annotation, or
-	//   rendered callgraph data uses a newer or invalid schema version.
-	// - `NO_INFO` — reachability data unavailable (one or more deps
-	//   unmined, stitch failed, or request timed out). When caused by
-	//   missing deps, `missing_components` lists the unsatisfied entries.
-	InfoCode    string  `json:"info_code"`
+	// InfoCode **Envelope summary only — read `data[].info_code` for outcomes.**
+	//
+	// - `READY` — at least one block is `READY` (bucket-fallback
+	//   results are `READY` blocks and count).
+	// - `NO_INFO` — the request was well-formed but no block carries
+	//   data.
+	// - `INVALID_REQUEST` — empty `dependencies` array, or two different
+	//   exact versions supplied for the same component.
+	//
+	// Per-dependency conditions never appear here and never reject the
+	// request. Whole-request rejection is reserved for malformed
+	// requests and conflicting client version authority.
+	InfoCode ReachabilityInfoCode `json:"info_code"`
+
+	// InfoMessage Summary of how many dependencies returned data, e.g.
+	// `"3 of 4 dependencies returned data"`.
 	InfoMessage *string `json:"info_message,omitempty"`
 
-	// MissingComponents Subset of the request's `dependencies` that the service could not
-	// satisfy from mining data. Each entry carries the resolved
-	// `(purl, version)` pair — version is the value after stripping the
-	// leading `=` from the original requirement. Present only when
-	// `info_code=NO_INFO` and the cause was unmined or callgraph-less
-	// dependencies.
+	// MissingComponents Convenience summary listing the resolved `(purl, version)` of
+	// exactly those dependencies whose block carries
+	// `info_code: NO_INFO`. The per-block `info_code` is authoritative —
+	// this list is a shortcut, not a separate verdict, and it does not
+	// cover blocks that failed for other reasons
+	// (`VERSION_NOT_FOUND`, `UNSUPPORTED_SCHEMA`, `INVALID_PURL`).
 	MissingComponents *[]struct {
 		Purl    string `json:"purl"`
 		Version string `json:"version"`
@@ -1435,14 +1549,15 @@ type DepTreeReachabilityResponse struct {
 	// the most recent contributor (by mining `created_at`), NOT a
 	// uniform "all deps under this version" guarantee. Use this when
 	// comparing two dep-tree responses to detect whether new rules
-	// have landed since the last call. Present only when `info_code=READY`.
+	// have landed since the last call. Present only when at least one
+	// block is data-bearing.
 	RulesVersion *string `json:"rules_version,omitempty"`
 
 	// Status Top-level outcome for the request as a whole.
 	Status StatusResponse `json:"status"`
 
 	// UnmatchedSignatures Signatures from `entry_point_signatures` that matched zero chains
-	// across the merged callgraph.
+	// in EVERY data-bearing block.
 	UnmatchedSignatures *[]string `json:"unmatched_signatures,omitempty"`
 }
 
@@ -1474,6 +1589,14 @@ type DependencyLicense struct {
 	Name           *string `json:"name,omitempty"`
 	SpdxId         *string `json:"spdx_id,omitempty"`
 	Url            *string `json:"url,omitempty"`
+}
+
+// DependencyResolutionError A client-pinned version that this root's closure needs but that could
+// not be served at any patch in its bucket.
+type DependencyResolutionError struct {
+	Purl             string `json:"purl"`
+	Reason           string `json:"reason"`
+	RequestedVersion string `json:"requested_version"`
 }
 
 // DetectorEnum Name of the detector that produced the evidence.
@@ -1918,6 +2041,37 @@ type ParameterSelector struct {
 // file path, each value an array of match candidates. Field set is the
 // engine's, passed through verbatim — modelled here as free-form.
 type RawScanResult map[string][]map[string]interface{}
+
+// ReachabilityInfoCode Outcome of one reachability evaluation. Used both as a `/dep-tree`
+// block's own outcome and as an endpoint envelope's summary.
+//
+//   - `READY` — reachability computed. Includes the exact-pin bucket
+//     fallback: a block served from a different patch stays `READY`, with
+//     the substitution reported in `fallback` / `requested_version` /
+//     `resolved_version` / `method` and the pre-existing
+//     `actual_mined_version`.
+//   - `INVALID_PURL` — the supplied PURL could not be parsed.
+//   - `INVALID_SEMVER` — the requirement is structurally invalid.
+//   - `COMPONENT_NOT_FOUND` — the purl has no mining results at any version
+//     (`/component` only; `/dep-tree` reports this as `NO_INFO`).
+//   - `VERSION_NOT_FOUND` — a valid constraint that no serveable mined
+//     version satisfies.
+//   - `UNSUPPORTED_SCHEMA` — stored producer data uses a newer schema than
+//     this deployment supports. See `docs/COMPATIBILITY.md`. Unrelated to
+//     the component's ecosystem or language.
+//   - `NO_INFO` — no reachability data. Covers a purl that was never mined
+//     and a component whose stored graph or annotation is missing. A
+//     component that WAS mined and simply contains no cryptography is
+//     `READY` with `findings: []`, not `NO_INFO`.
+//   - `DEPENDENCY_UNRESOLVED` — `/dep-tree` blocks only: a version the
+//     client pinned is required by this root's closure but has no
+//     serveable patch in its bucket. The cause is itemized in
+//     `dependency_resolution_errors`; the block carries no findings and is
+//     NOT listed in `missing_components`.
+//   - `INVALID_REQUEST` — `/dep-tree` envelope only: an empty
+//     `dependencies` array, or two different exact versions supplied for
+//     the same component.
+type ReachabilityInfoCode = string
 
 // ReachableFinding One finding reachable from a crypto entry point.
 type ReachableFinding struct {
