@@ -48,6 +48,27 @@ const (
 	ComponentHealthStatusOk       ComponentHealthStatus = "ok"
 )
 
+// Defines values for CryptoAssetAnalysisCallChains.
+const (
+	CryptoAssetAnalysisCallChainsComplete CryptoAssetAnalysisCallChains = "complete"
+	CryptoAssetAnalysisCallChainsPartial  CryptoAssetAnalysisCallChains = "partial"
+)
+
+// Defines values for CryptoAssetAnalysisParameters.
+const (
+	CryptoAssetAnalysisParametersComplete    CryptoAssetAnalysisParameters = "complete"
+	CryptoAssetAnalysisParametersPartial     CryptoAssetAnalysisParameters = "partial"
+	CryptoAssetAnalysisParametersUnavailable CryptoAssetAnalysisParameters = "unavailable"
+)
+
+// Defines values for CryptoAssetReachability.
+const (
+	NotApplicable CryptoAssetReachability = "not_applicable"
+	Reachable     CryptoAssetReachability = "reachable"
+	Unknown       CryptoAssetReachability = "unknown"
+	Unreachable   CryptoAssetReachability = "unreachable"
+)
+
 // Defines values for CryptoAssetSource.
 const (
 	Direct   CryptoAssetSource = "direct"
@@ -1208,6 +1229,21 @@ type CryptoAlgorithmsResponse struct {
 // true`. `forward_calls` is populated ONLY when `include_forward_calls:
 // true`.
 type CryptoAsset struct {
+	// Analysis How complete the reachability evidence for this asset is. Present
+	// only when the reachability endpoint was called with
+	// `include_call_chains: true`. A `partial` value is why `reachability`
+	// may read `unknown`.
+	Analysis *struct {
+		// CallChains `partial` when a bound truncated the traversal, so `call_chains`
+		// carries a subset of the routes that exist.
+		CallChains *CryptoAssetAnalysisCallChains `json:"call_chains,omitempty"`
+
+		// Parameters How many exported call-site parameters resolved to a value or a
+		// data-flow source. `unavailable` when no parameter provenance was
+		// exported at all.
+		Parameters *CryptoAssetAnalysisParameters `json:"parameters,omitempty"`
+	} `json:"analysis,omitempty"`
+
 	// CallChains Ordered call chains from entry points to this asset, following
 	// crypto-finder's callgraph 6.x schema. Each element is an ordered
 	// array of call-chain frame objects (see `CallNode`). Present only when the
@@ -1253,12 +1289,24 @@ type CryptoAsset struct {
 	// ParameterConditions Structured producer-owned parameter predicates.
 	ParameterConditions *[]ParameterCondition `json:"parameter_conditions,omitempty"`
 
-	// Reachable True iff at least one entry point reaches this asset. Present
-	// only when the reachability endpoint was called with
-	// `include_call_chains: true`.
-	Reachable *bool             `json:"reachable,omitempty"`
-	Source    CryptoAssetSource `json:"source"`
-	StartLine int32             `json:"start_line"`
+	// Reachability Whether an entry point reaches this asset, and how confidently.
+	// Replaced the legacy `reachable` boolean, which a three-state answer
+	// could not express. Present only when the reachability endpoint was
+	// called with `include_call_chains: true`.
+	//
+	// * `reachable` — a chain from an entry point to this asset was
+	//   established. A self-chain (the containing function alone) never
+	//   counts.
+	// * `unreachable` — no entry point reaches it.
+	// * `unknown` — the traversal could not settle the question: an
+	//   ambiguous dispatch was suppressed, or a bound truncated the walk.
+	//   Investigate rather than reading it as unreachable.
+	// * `not_applicable` — the question does not apply, because the
+	//   component was scanned on its own and there is no consumer code to
+	//   be reached from.
+	Reachability *CryptoAssetReachability `json:"reachability,omitempty"`
+	Source       CryptoAssetSource        `json:"source"`
+	StartLine    int32                    `json:"start_line"`
 
 	// SupportingCallIds Foreign-key breadcrumb to the block-level `supporting_calls[]`
 	// array. Each string value is a `supporting_calls[].supporting_id`.
@@ -1266,6 +1314,32 @@ type CryptoAsset struct {
 	// asset's finding graph references supporting calls.
 	SupportingCallIds *[]string `json:"supporting_call_ids,omitempty"`
 }
+
+// CryptoAssetAnalysisCallChains `partial` when a bound truncated the traversal, so `call_chains`
+// carries a subset of the routes that exist.
+type CryptoAssetAnalysisCallChains string
+
+// CryptoAssetAnalysisParameters How many exported call-site parameters resolved to a value or a
+// data-flow source. `unavailable` when no parameter provenance was
+// exported at all.
+type CryptoAssetAnalysisParameters string
+
+// CryptoAssetReachability Whether an entry point reaches this asset, and how confidently.
+// Replaced the legacy `reachable` boolean, which a three-state answer
+// could not express. Present only when the reachability endpoint was
+// called with `include_call_chains: true`.
+//
+//   - `reachable` — a chain from an entry point to this asset was
+//     established. A self-chain (the containing function alone) never
+//     counts.
+//   - `unreachable` — no entry point reaches it.
+//   - `unknown` — the traversal could not settle the question: an
+//     ambiguous dispatch was suppressed, or a bound truncated the walk.
+//     Investigate rather than reading it as unreachable.
+//   - `not_applicable` — the question does not apply, because the
+//     component was scanned on its own and there is no consumer code to
+//     be reached from.
+type CryptoAssetReachability string
 
 // CryptoAssetSource defines model for CryptoAsset.Source.
 type CryptoAssetSource string
@@ -1305,9 +1379,18 @@ type CryptoEntryPoint struct {
 	ReachableFindings []ReachableFinding               `json:"reachable_findings"`
 
 	// ReachableSupportingCalls Supporting calls reachable from this entry point.
-	ReachableSupportingCalls *[]ReachableSupportingCall  `json:"reachable_supporting_calls,omitempty"`
-	ReturnType               *string                     `json:"return_type,omitempty"`
-	Visibility               *CryptoEntryPointVisibility `json:"visibility,omitempty"`
+	ReachableSupportingCalls *[]ReachableSupportingCall `json:"reachable_supporting_calls,omitempty"`
+	ReturnType               *string                    `json:"return_type,omitempty"`
+
+	// Root True when this entry point is where a chain starts — the first
+	// root-module caller when dependencies were scanned, or a function with
+	// no caller in the component's own graph when it was scanned alone.
+	//
+	// The index itself is deliberately broader: it lists every function
+	// from which a finding is reachable, so most entries are not roots.
+	// Omitted when false.
+	Root       *bool                       `json:"root,omitempty"`
+	Visibility *CryptoEntryPointVisibility `json:"visibility,omitempty"`
 }
 
 // CryptoEntryPointOwnerVisibility defines model for CryptoEntryPoint.OwnerVisibility.
