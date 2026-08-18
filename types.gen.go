@@ -564,6 +564,10 @@ type CallArgument struct {
 type CallNode struct {
 	CanonicalSignature string `json:"canonical_signature"`
 
+	// DependencyInfo Component that owns this frame, present when the frame belongs to a
+	// dependency rather than the queried component.
+	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
+
 	// EntryCall The call site where one node in a chain invokes the next.
 	// Present on every chain node except the entry-point node.
 	EntryCall       *CallSite                `json:"entry_call,omitempty"`
@@ -872,15 +876,29 @@ type ComponentReachabilityRequest struct {
 	// When non-empty, `assets[]` is **restricted to findings reachable
 	// from at least one supplied entry point**. Findings unreachable
 	// from any supplied entry are REMOVED entirely from `assets[]` —
-	// they do NOT appear as `reachable=false` entries. An empty array
-	// (or absent field) means no filter; all findings are returned.
-	// Signatures that matched zero call chains are listed in
+	// they do NOT appear as `reachability: unreachable` entries. An
+	// empty array (or absent field) means no filter; all findings are
+	// returned.
+	//
+	// Matching is against `crypto_entry_points[].canonical_signature`,
+	// so every entry point the service can publish is a usable filter
+	// value — including the majority that head none of the emitted
+	// `call_chains[]`. Supply the signature exactly as that field
+	// spells it, spaces included.
+	//
+	// With `include_call_chains: true` a surviving asset's
+	// `call_chains[]` carries routes that START at a supplied entry: the
+	// traversal is rooted at them, so the per-finding chain budget is
+	// spent reaching what you asked about instead of on whichever entries
+	// the walk happened to meet first.
+	//
+	// Signatures matching no entry point in the component are listed in
 	// `unmatched_signatures` at the top level of the response
 	// (diagnostic for typos).
 	EntryPointSignatures *[]string `json:"entry_point_signatures,omitempty"`
 
 	// IncludeCallChains When true, decorates each asset with its `call_chains[]` array
-	// (raw callgraph 6.x frame arrays) and the `reachable` bool.
+	// (raw callgraph 6.x frame arrays) and the `reachability` verdict.
 	// Default false produces a pure CBOM response (findings without
 	// reachability decoration). Independent of `entry_point_signatures`
 	// (which controls whether assets are PRUNED to reachable ones).
@@ -918,9 +936,17 @@ type ComponentReachabilityRequest struct {
 	IncludeSupportingCalls *bool `json:"include_supporting_calls,omitempty"`
 
 	// MaxChainsPerAsset Per-asset cap on `call_chains[]` length. Hard cap 128.
-	// `0` (the default) means no cap — all chains are returned. Use a
-	// positive integer to limit chains per asset. Values above 128 are
+	// `0` (the default) applies no cap HERE — it does not mean every route
+	// that exists is returned: the traversal that produces the chains
+	// already bounds them at 128 per finding, so 128 is the ceiling either
+	// way. Use a positive integer to ask for fewer. Values above 128 are
 	// rejected with HTTP 400.
+	//
+	// A finding at that ceiling has more routes than were emitted, and
+	// `analysis.call_chains` does not currently report it — treat exactly
+	// 128 chains as "sampled", and read
+	// `crypto_entry_points[].reachable_findings[].chain_depth` for the
+	// distance from an entry the chains do not cover.
 	MaxChainsPerAsset *int32 `json:"max_chains_per_asset,omitempty"`
 
 	// MaxForwardDepth Optional forward traversal depth. Applies only when
@@ -1283,6 +1309,18 @@ type CryptoAsset struct {
 	// not synthesize provider or crypto-module claims.
 	Metadata CryptoFinderMetadata `json:"metadata"`
 
+	// OccurrenceKey Structural identity of the occurrence, `v1:` followed by 16 lowercase
+	// hex characters (findings schema `1.5+`).
+	//
+	// It is derived from AST anchors and deliberately excludes rules, source
+	// text, metadata, reachability and severity, so it survives reformatting
+	// and rule changes that `finding_id` does not. Use `(finding_id,
+	// occurrence_key)` to recognise the same occurrence across scans; fall
+	// back to `finding_id` alone when it is absent, which is the case for
+	// components mined under an older schema and for detections with no AST
+	// call evidence.
+	OccurrenceKey *string `json:"occurrence_key,omitempty"`
+
 	// Oid RFC 5280 / CBOM Object Identifier when applicable.
 	Oid *string `json:"oid,omitempty"`
 
@@ -1508,16 +1546,23 @@ type DepTreeReachabilityRequest struct {
 	// EntryPointSignatures Optional exact-match filter on entry-point canonical signatures.
 	// When non-empty, `findings[]` is **restricted to assets reachable
 	// from at least one supplied entry point**. Findings unreachable
-	// from any supplied entry are REMOVED entirely —
-	// they do NOT appear as `reachable=false` entries. An empty array
-	// (or absent field) means no filter; all findings are returned.
-	// Signatures that matched zero call chains are listed in
+	// from any supplied entry are REMOVED entirely — they do NOT appear
+	// as `reachability: unreachable` entries. An empty array (or absent
+	// field) means no filter; all findings are returned.
+	//
+	// Matching is against `crypto_entry_points[].canonical_signature`,
+	// so every entry point the service can publish is a usable filter
+	// value — including the majority that head none of the emitted
+	// `call_chains[]`. Supply the signature exactly as that field
+	// spells it, spaces included.
+	//
+	// Signatures matching no entry point in any block are listed in
 	// `unmatched_signatures` at the top level of the response
 	// (diagnostic for typos).
 	EntryPointSignatures *[]string `json:"entry_point_signatures,omitempty"`
 
 	// IncludeCallChains When true, decorates each asset with its `call_chains[]` array
-	// (raw callgraph 6.x frame arrays) and the `reachable` bool.
+	// (raw callgraph 6.x frame arrays) and the `reachability` verdict.
 	// Default false produces a pure CBOM response (findings without
 	// reachability decoration). Independent of `entry_point_signatures`
 	// (which controls whether assets are PRUNED to reachable ones).
@@ -1548,8 +1593,10 @@ type DepTreeReachabilityRequest struct {
 	// Independent of `include_call_chains` and `include_crypto_entry_points`.
 	IncludeSupportingCalls *bool `json:"include_supporting_calls,omitempty"`
 
-	// MaxChainsPerAsset Per-asset cap on `call_chains[]` length. `0` (the default) = no cap.
-	// Positive integer sets a per-asset limit. Hard cap 128.
+	// MaxChainsPerAsset Per-asset cap on `call_chains[]` length. Hard cap 128. `0` (the
+	// default) applies no cap here, but the traversal already bounds chains
+	// at 128 per finding, so 128 is the ceiling either way. Positive
+	// integer asks for fewer.
 	MaxChainsPerAsset *int32 `json:"max_chains_per_asset,omitempty"`
 
 	// MaxForwardDepth Optional forward traversal depth. Applies only when
@@ -1797,7 +1844,7 @@ type ForwardAmbiguousCandidate struct {
 	CanonicalSignature *string `json:"canonical_signature,omitempty"`
 	DeclaringType      *string `json:"declaring_type,omitempty"`
 
-	// DependencyInfo Dependency component that owns a forward-reachable function.
+	// DependencyInfo Dependency component that owns a function.
 	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
 
 	// EntryCall Callable identity and argument data flow for a forward edge or candidate.
@@ -1815,9 +1862,19 @@ type ForwardCallAnchor struct {
 	FunctionName  *string `json:"function_name,omitempty"`
 }
 
-// ForwardCallDependency Dependency component that owns a forward-reachable function.
+// ForwardCallDependency Dependency component that owns a function.
 type ForwardCallDependency struct {
-	Module  string  `json:"module"`
+	Module string `json:"module"`
+
+	// Purl Canonical package URL for the owning component, so a consumer can key
+	// it the same way this API is queried instead of rebuilding it from
+	// `module` and `version` per ecosystem (callgraph schema `6.10+`).
+	//
+	// Present for known ecosystems (Java, Python, Go, Rust) and omitted for
+	// the rest. A dependency with no resolved version yields a versionless
+	// purl. It is derived from fields the fragment already carried, so
+	// components mined under an older schema also gain it.
+	Purl    *string `json:"purl,omitempty"`
 	Version *string `json:"version,omitempty"`
 }
 
@@ -1839,7 +1896,7 @@ type ForwardCallEdge struct {
 type ForwardCallNode struct {
 	CryptoRelevant *bool `json:"crypto_relevant,omitempty"`
 
-	// DependencyInfo Dependency component that owns a forward-reachable function.
+	// DependencyInfo Dependency component that owns a function.
 	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
 	Depth          int32                  `json:"depth"`
 	DisplaySymbol  *string                `json:"display_symbol,omitempty"`
