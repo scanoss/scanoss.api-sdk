@@ -18,6 +18,13 @@ const (
 	BatchStatusStatusSUCCESS        BatchStatusStatus = "SUCCESS"
 )
 
+// Defines values for CallNodeEntryResolution.
+const (
+	CallNodeEntryResolutionExact             CallNodeEntryResolution = "exact"
+	CallNodeEntryResolutionInterfaceDispatch CallNodeEntryResolution = "interface_dispatch"
+	CallNodeEntryResolutionNameOnly          CallNodeEntryResolution = "name_only"
+)
+
 // Defines values for CallNodeOwnerVisibility.
 const (
 	CallNodeOwnerVisibilityPackagePrivate CallNodeOwnerVisibility = "package-private"
@@ -36,9 +43,9 @@ const (
 
 // Defines values for ComponentDataMethod.
 const (
-	Exact                      ComponentDataMethod = "exact"
-	HighestPatchSameMajorMinor ComponentDataMethod = "highest_patch_same_major_minor"
-	Range                      ComponentDataMethod = "range"
+	ComponentDataMethodExact                      ComponentDataMethod = "exact"
+	ComponentDataMethodHighestPatchSameMajorMinor ComponentDataMethod = "highest_patch_same_major_minor"
+	ComponentDataMethodRange                      ComponentDataMethod = "range"
 )
 
 // Defines values for ComponentHealthStatus.
@@ -570,7 +577,24 @@ type CallNode struct {
 
 	// EntryCall The call site where one node in a chain invokes the next.
 	// Present on every chain node except the entry-point node.
-	EntryCall       *CallSite                `json:"entry_call,omitempty"`
+	EntryCall *CallSite `json:"entry_call,omitempty"`
+
+	// EntryDeclaredType The static type the arriving call was written against, present when
+	// `entry_resolution` is a dispatch kind: it names what the analysis
+	// could not narrow. Absent otherwise.
+	EntryDeclaredType *string `json:"entry_declared_type,omitempty"`
+
+	// EntryResolution How the call that arrives at this frame was established. `exact` when
+	// the callee is certain; a dispatch kind when the analysis could not
+	// narrow the receiver and considered every compatible implementation.
+	// Absent on the first frame of a chain, which no call arrives at, and on
+	// frames served from data mined before callgraph `6.13`.
+	//
+	// A route is selected by minimum length, so a dispatch edge that happens
+	// to be spurious is exactly the kind of hop a shortest route prefers.
+	// Read this to keep the certain part of a route and treat the rest as
+	// indicative rather than as a claim about execution.
+	EntryResolution *CallNodeEntryResolution `json:"entry_resolution,omitempty"`
 	FilePath        *string                  `json:"file_path,omitempty"`
 	FunctionName    string                   `json:"function_name"`
 	OwnerVisibility *CallNodeOwnerVisibility `json:"owner_visibility,omitempty"`
@@ -579,6 +603,18 @@ type CallNode struct {
 	StartLine       *int32                   `json:"start_line,omitempty"`
 	Visibility      *CallNodeVisibility      `json:"visibility,omitempty"`
 }
+
+// CallNodeEntryResolution How the call that arrives at this frame was established. `exact` when
+// the callee is certain; a dispatch kind when the analysis could not
+// narrow the receiver and considered every compatible implementation.
+// Absent on the first frame of a chain, which no call arrives at, and on
+// frames served from data mined before callgraph `6.13`.
+//
+// A route is selected by minimum length, so a dispatch edge that happens
+// to be spurious is exactly the kind of hop a shortest route prefers.
+// Read this to keep the certain part of a route and treat the rest as
+// indicative rather than as a claim about execution.
+type CallNodeEntryResolution string
 
 // CallNodeOwnerVisibility defines model for CallNode.OwnerVisibility.
 type CallNodeOwnerVisibility string
