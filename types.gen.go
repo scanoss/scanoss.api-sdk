@@ -1000,13 +1000,18 @@ type ComponentReachabilityRequest struct {
 }
 
 // ComponentReachabilityResponse Response envelope for `/component`. Top-level shape:
-// `{data, info_code, info_message, rules_version, status,
+// `{data, info_code, info_message, missing_components, rules_version, status,
 // unmatched_signatures, callgraph}`.
 //
 // `data` is an array of length 1 — the target component block with all
 // merged transitive findings collapsed in (own + indirect, discriminated
 // by `cryptographic_asset.source`). Component identity (`purl`, `version`,
 // `requirement`) lives inside `data[0]`, not at the top level.
+//
+// Unmined nodes in the recorded dependency closure do not blank the
+// parent: the envelope stays `READY` and lists those holes in
+// `missing_components`. `NO_INFO` remains only when the requested
+// component itself has no serveable graph.
 //
 // `unmatched_signatures` and `callgraph` live at the TOP LEVEL.
 //
@@ -1019,12 +1024,24 @@ type ComponentReachabilityResponse struct {
 	Callgraph *map[string]interface{} `json:"callgraph,omitempty"`
 	Data      *[]ComponentData        `json:"data,omitempty"`
 
-	// InfoCode Outcome for this single component, exactly as previous releases —
-	// a bucket-fallback result stays `READY` with `actual_mined_version`
-	// set. `DEPENDENCY_UNRESOLVED` and `INVALID_REQUEST` are not used by
+	// InfoCode Outcome for this single component. A bucket-fallback result stays
+	// `READY` with `actual_mined_version` set. Unmined transitives keep
+	// the envelope `READY` and appear in `missing_components`.
+	// `DEPENDENCY_UNRESOLVED` and `INVALID_REQUEST` are not used by
 	// this endpoint.
 	InfoCode    ReachabilityInfoCode `json:"info_code"`
 	InfoMessage *string              `json:"info_message,omitempty"`
+
+	// MissingComponents Recorded transitive dependencies that have no serveable graph
+	// fragment or annotation. Present only on a `READY` envelope whose
+	// requested component was mined. The parent is stitched from the
+	// subgraph that *is* present; chains through a listed hole do not
+	// exist. Omitted when the closure is complete. Not used to report
+	// a missing *root* — that remains `info_code: NO_INFO`.
+	MissingComponents *[]struct {
+		Purl    string `json:"purl"`
+		Version string `json:"version"`
+	} `json:"missing_components,omitempty"`
 
 	// RulesVersion Echoed on READY — the rules_version active for this row.
 	RulesVersion *string `json:"rules_version,omitempty"`
@@ -2235,10 +2252,13 @@ type RawScanResult map[string][]map[string]interface{}
 //   - `UNSUPPORTED_SCHEMA` — stored producer data uses a newer schema than
 //     this deployment supports. See `docs/COMPATIBILITY.md`. Unrelated to
 //     the component's ecosystem or language.
-//   - `NO_INFO` — no reachability data. Covers a purl that was never mined
-//     and a component whose stored graph or annotation is missing. A
-//     component that WAS mined and simply contains no cryptography is
-//     `READY` with `findings: []`, not `NO_INFO`.
+//   - `NO_INFO` — no reachability data for the *requested* component.
+//     Covers a purl that was never mined and a component whose own stored
+//     graph or annotation is missing. Unmined *transitive* dependencies
+//     no longer blank a mined parent: `/component` stays `READY` and
+//     lists those holes in `missing_components`. A component that WAS
+//     mined and simply contains no cryptography is `READY` with
+//     `findings: []`, not `NO_INFO`.
 //   - `DEPENDENCY_UNRESOLVED` — `/dep-tree` blocks only: a version the
 //     client pinned is required by this root's closure but has no
 //     serveable patch in its bucket. The cause is itemized in
@@ -2565,6 +2585,14 @@ type SupportingCall struct {
 	SupportingId string `json:"supporting_id"`
 }
 
+// TransitiveComponent One requested entry component with the transitive dependencies reachable from it.
+type TransitiveComponent struct {
+	Dependencies *[]TransitiveDependency `json:"dependencies,omitempty"`
+	Purl         *string                 `json:"purl,omitempty"`
+	Requirement  *string                 `json:"requirement,omitempty"`
+	Version      *string                 `json:"version,omitempty"`
+}
+
 // TransitiveDependency defines model for TransitiveDependency.
 type TransitiveDependency struct {
 	Purl        *string `json:"purl,omitempty"`
@@ -2581,8 +2609,9 @@ type TransitiveRequest struct {
 
 // TransitiveResponse defines model for TransitiveResponse.
 type TransitiveResponse struct {
-	Dependencies *[]TransitiveDependency `json:"dependencies,omitempty"`
-	Status       BatchStatus             `json:"status"`
+	// Components One entry per requested component, each with its own dependencies.
+	Components *[]TransitiveComponent `json:"components,omitempty"`
+	Status     BatchStatus            `json:"status"`
 }
 
 // VulnerabilitiesResponse defines model for VulnerabilitiesResponse.
