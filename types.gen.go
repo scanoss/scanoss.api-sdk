@@ -2622,16 +2622,19 @@ type VulnerabilitiesResponse struct {
 
 // Vulnerability defines model for Vulnerability.
 type Vulnerability struct {
-	Cve       *string              `json:"cve,omitempty"`
-	Cvss      *[]CVSS              `json:"cvss,omitempty"`
-	Epss      *EPSS                `json:"epss,omitempty"`
-	Id        *string              `json:"id,omitempty"`
-	Modified  *string              `json:"modified,omitempty"`
-	Published *string              `json:"published,omitempty"`
-	Severity  *string              `json:"severity,omitempty"`
-	Source    *VulnerabilitySource `json:"source,omitempty"`
-	Summary   *string              `json:"summary,omitempty"`
-	Url       *string              `json:"url,omitempty"`
+	Cve  *string `json:"cve,omitempty"`
+	Cvss *[]CVSS `json:"cvss,omitempty"`
+	Epss *EPSS   `json:"epss,omitempty"`
+
+	// FixedVersions Explicit fixed-version boundaries reported by OSV, deduplicated and sorted. Omitted when the source provides none; never inferred from NVD affected ranges.
+	FixedVersions *[]string            `json:"fixed_versions,omitempty"`
+	Id            *string              `json:"id,omitempty"`
+	Modified      *string              `json:"modified,omitempty"`
+	Published     *string              `json:"published,omitempty"`
+	Severity      *string              `json:"severity,omitempty"`
+	Source        *VulnerabilitySource `json:"source,omitempty"`
+	Summary       *string              `json:"summary,omitempty"`
+	Url           *string              `json:"url,omitempty"`
 }
 
 // VulnerabilitySource defines model for Vulnerability.Source.
