@@ -1396,8 +1396,16 @@ type CryptoAsset struct {
 	//   component was scanned on its own and there is no consumer code to
 	//   be reached from.
 	Reachability *CryptoAssetReachability `json:"reachability,omitempty"`
-	Source       CryptoAssetSource        `json:"source"`
-	StartLine    int32                    `json:"start_line"`
+
+	// Rules Detection rules for this asset. Omitted when the served findings
+	// bytes did not carry rule identity (older mines, legacy fragments
+	// with no rule_id). Presence of the key with a non-empty array means
+	// rule identity is available. Do not treat omission as "no rule
+	// matched". `id` is the `finding_id` hash input. Envelope
+	// `rules_version` is the ruleset pack.
+	Rules     *[]CryptoRule     `json:"rules,omitempty"`
+	Source    CryptoAssetSource `json:"source"`
+	StartLine int32             `json:"start_line"`
 
 	// SupportingCallIds Foreign-key breadcrumb to the block-level `supporting_calls[]`
 	// array. Each string value is a `supporting_calls[].supporting_id`.
@@ -1539,6 +1547,22 @@ type CryptoHintsInRangeResponse struct {
 type CryptoHintsResponse struct {
 	Components []ComponentHints `json:"components"`
 	Status     BatchStatus      `json:"status"`
+}
+
+// CryptoRule One crypto-finder rule that identified this asset. `id` is the
+// `rule_id` input to `finding_id` (`SHA-256(file_path:start_line:rule_id)[:8]`).
+// `message` and `severity` are present when the served findings bytes
+// carried them (a live findings.json). The reconstructed serve path
+// currently supplies `id` only. Join the envelope `rules_version`
+// ruleset for full rule text in that case. Envelope `rules_version`
+// is the only ruleset pin. There is no per-rule `version`.
+type CryptoRule struct {
+	Id      string  `json:"id"`
+	Message *string `json:"message,omitempty"`
+
+	// Severity Producer severity when present. Known values include INFO, WARNING,
+	// ERROR. Not an enum. A new producer value must not fail SDK unmarshal.
+	Severity *string `json:"severity,omitempty"`
 }
 
 // CryptoVersionsInRangeResponse defines model for CryptoVersionsInRangeResponse.
