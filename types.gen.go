@@ -159,6 +159,13 @@ const (
 	LookupStatusResponseStatusSUCCESS               LookupStatusResponseStatus = "SUCCESS"
 )
 
+// Defines values for MatchResultConfidence.
+const (
+	HIGH   MatchResultConfidence = "HIGH"
+	LOW    MatchResultConfidence = "LOW"
+	MEDIUM MatchResultConfidence = "MEDIUM"
+)
+
 // Defines values for MatchedOperationKind.
 const (
 	Call          MatchedOperationKind = "call"
@@ -1280,6 +1287,9 @@ type CpesResponse struct {
 type CryptoAlgorithm struct {
 	Algorithm *string `json:"algorithm,omitempty"`
 	Strength  *string `json:"strength,omitempty"`
+
+	// Tags Classifier labels for the algorithm (e.g. broken-crypto, weak-cipher, obsolete, deprecated, nist-standardized, active). Omitted when the serving schema ships no crypto tag tables.
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 // CryptoAlgorithmsInRangeResponse defines model for CryptoAlgorithmsInRangeResponse.
@@ -1534,7 +1544,10 @@ type CryptoHint struct {
 	Id          *string `json:"id,omitempty"`
 	Name        *string `json:"name,omitempty"`
 	Purl        *string `json:"purl,omitempty"`
-	Url         *string `json:"url,omitempty"`
+
+	// Tags Classifier labels for the library (e.g. AES, AEAD, deprecated). Omitted when the serving schema ships no crypto tag tables.
+	Tags *[]string `json:"tags,omitempty"`
+	Url  *string   `json:"url,omitempty"`
 }
 
 // CryptoHintsInRangeResponse defines model for CryptoHintsInRangeResponse.
@@ -2161,6 +2174,9 @@ type LookupStatusResponseStatus string
 
 // MatchResult One matched KB entry for a scanned file.
 type MatchResult struct {
+	// Confidence Attribution reliability grade for this match: LOW, MEDIUM or HIGH.
+	Confidence MatchResultConfidence `json:"confidence"`
+
 	// InputLineRanges Snippet matches only — matched line ranges in the input file.
 	InputLineRanges []LineRange `json:"input_line_ranges,omitempty"`
 
@@ -2176,6 +2192,9 @@ type MatchResult struct {
 	// UrlHash url_hash of the matched component release.
 	UrlHash string `json:"url_hash"`
 }
+
+// MatchResultConfidence Attribution reliability grade for this match: LOW, MEDIUM or HIGH.
+type MatchResultConfidence string
 
 // MatchedOperation The cryptographic operation matched by a detection rule.
 type MatchedOperation struct {
