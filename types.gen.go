@@ -43,9 +43,12 @@ const (
 
 // Defines values for ComponentDataMethod.
 const (
-	ComponentDataMethodExact                      ComponentDataMethod = "exact"
-	ComponentDataMethodHighestPatchSameMajorMinor ComponentDataMethod = "highest_patch_same_major_minor"
-	ComponentDataMethodRange                      ComponentDataMethod = "range"
+	ComponentDataMethodExact                             ComponentDataMethod = "exact"
+	ComponentDataMethodHighestPatchSameMajorMinor        ComponentDataMethod = "highest_patch_same_major_minor"
+	ComponentDataMethodNearestGreaterMinorSameMajor      ComponentDataMethod = "nearest_greater_minor_same_major"
+	ComponentDataMethodNearestGreaterPatchSameMajorMinor ComponentDataMethod = "nearest_greater_patch_same_major_minor"
+	ComponentDataMethodNearestLowerMinorSameMajor        ComponentDataMethod = "nearest_lower_minor_same_major"
+	ComponentDataMethodRange                             ComponentDataMethod = "range"
 )
 
 // Defines values for ComponentHealthStatus.
@@ -474,11 +477,12 @@ const (
 // client resolved elsewhere in the request — the same asked/served/flag
 // triple as the block, at dependency granularity.
 type AppliedDependencyOverride struct {
-	// AppliedVersion The version actually used during expansion — the pin, or the
-	// highest serveable patch of the pin's bucket.
+	// AppliedVersion The version actually used during expansion — the pin (or its Maven
+	// release), or the pin's fallback: the nearest serveable version above
+	// it within its major, else the highest lower patch of its line.
 	AppliedVersion string `json:"applied_version"`
 
-	// Fallback `true` iff `applied_version` differs from `requested_version`.
+	// Fallback `true` iff `applied_version` is neither `requested_version` nor its Maven release.
 	Fallback bool   `json:"fallback"`
 	Purl     string `json:"purl"`
 
@@ -764,12 +768,23 @@ type ComponentData struct {
 	InfoMessage *string `json:"info_message,omitempty"`
 
 	// Method How the served version was selected (`/dep-tree` only). `exact` —
-	// the requested version was served. `range` — a semver constraint
-	// resolved to a mined version inside it.
-	// `highest_patch_same_major_minor` — the requested exact version was
-	// not serveable and the highest serveable patch in the same
-	// `major.minor` bucket was served instead (paired with
-	// `fallback: true`; the block stays `READY`).
+	// the requested version (or its Maven release, e.g. `4.1.112` →
+	// `4.1.112.Final`) was served. `range` — a semver constraint resolved
+	// to a mined version inside it.
+	// The other values are fallbacks for a requested exact version that
+	// is not serveable, tried in this order and never across the major:
+	// `nearest_greater_patch_same_major_minor` — the nearest serveable
+	// patch above it in the same `major.minor`;
+	// `nearest_greater_minor_same_major` — the nearest serveable release
+	// of a later minor of the same major;
+	// `highest_patch_same_major_minor` — nothing greater is serveable, so
+	// the nearest lower version of the same `major.minor`;
+	// `nearest_lower_minor_same_major` — nor is anything in that line, so
+	// the nearest lower release of an earlier minor of the same major.
+	// Versions compare the way Maven orders them: `4.1.112.RELEASE` and
+	// `4.1.112.Final` are the same release (served as `exact`), and a
+	// pre-release such as `4.1.112.CR1` sorts below it.
+	// Fallbacks pair with `fallback: true`; the block stays `READY`.
 	Method *ComponentDataMethod `json:"method,omitempty"`
 	Purl   string               `json:"purl"`
 
@@ -809,12 +824,23 @@ type ComponentData struct {
 }
 
 // ComponentDataMethod How the served version was selected (`/dep-tree` only). `exact` —
-// the requested version was served. `range` — a semver constraint
-// resolved to a mined version inside it.
-// `highest_patch_same_major_minor` — the requested exact version was
-// not serveable and the highest serveable patch in the same
-// `major.minor` bucket was served instead (paired with
-// `fallback: true`; the block stays `READY`).
+// the requested version (or its Maven release, e.g. `4.1.112` →
+// `4.1.112.Final`) was served. `range` — a semver constraint resolved
+// to a mined version inside it.
+// The other values are fallbacks for a requested exact version that
+// is not serveable, tried in this order and never across the major:
+// `nearest_greater_patch_same_major_minor` — the nearest serveable
+// patch above it in the same `major.minor`;
+// `nearest_greater_minor_same_major` — the nearest serveable release
+// of a later minor of the same major;
+// `highest_patch_same_major_minor` — nothing greater is serveable, so
+// the nearest lower version of the same `major.minor`;
+// `nearest_lower_minor_same_major` — nor is anything in that line, so
+// the nearest lower release of an earlier minor of the same major.
+// Versions compare the way Maven orders them: `4.1.112.RELEASE` and
+// `4.1.112.Final` are the same release (served as `exact`), and a
+// pre-release such as `4.1.112.CR1` sorts below it.
+// Fallbacks pair with `fallback: true`; the block stays `READY`.
 type ComponentDataMethod string
 
 // ComponentHealth Status of one dependency in the readiness response.
@@ -1000,9 +1026,13 @@ type ComponentReachabilityRequest struct {
 
 	// Requirement Version constraint. Accepts exact versions (`1.5.2`, `=1.5.2`) or
 	// SemVer constraint expressions (`>=1.5.0`, `^1.5.0`, `~1.5.0`,
-	// `>=1.5.0,<2.0.0`). The leading `=` is optional. For range
-	// expressions, the server resolves to the highest mined version
-	// satisfying the constraint; no match → `VERSION_NOT_FOUND`.
+	// `>=1.5.0,<2.0.0`, `4.1.x`), including Maven range syntax
+	// (`[4.1.112,4.2.0)`, `(,4.1.112]`; `[4.1.112]` is an exact pin).
+	// An unparseable constraint → `INVALID_SEMVER`. The leading `=` is optional. A range with a lower
+	// bound resolves to the mined version nearest that bound (the lowest
+	// satisfying one); an upper-bound-only range resolves to the highest.
+	// Maven qualifiers are understood: `4.1.136.Final` satisfies
+	// `>=4.1.112`. No match → `VERSION_NOT_FOUND`.
 	Requirement *string `json:"requirement,omitempty"`
 }
 
@@ -1629,8 +1659,9 @@ type DepTreeReachabilityRequest struct {
 	// Dependencies Flat list of every (purl, version) to be stitched. Every entry
 	// MUST carry a version, either as an exact pin (`=1.5.2`) or as a
 	// SemVer constraint expression (`>=1.0`, `^2.0`, `~1.5`).
-	// Range constraints resolve to the highest mined version satisfying
-	// the constraint. The server does NOT auto-resolve transitive deps.
+	// Range constraints resolve to the mined version nearest their lower
+	// bound (the highest when they have none). The server does NOT
+	// auto-resolve transitive deps.
 	Dependencies []ComponentRequest `json:"dependencies"`
 
 	// EntryPointSignatures Optional exact-match filter on entry-point canonical signatures.
