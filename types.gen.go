@@ -756,7 +756,9 @@ type ComponentData struct {
 
 	// FindingCount Total cryptographic_assets count across all findings[] in this
 	// block. POST-PRUNE — when a filter is active, reflects surviving
-	// assets, NOT the unfiltered universe.
+	// assets, NOT the unfiltered universe. On a findings-only
+	// `/component` block it is the number of assets in the stored
+	// crypto-finder report.
 	FindingCount int32     `json:"finding_count"`
 	Findings     []Finding `json:"findings"`
 
@@ -803,6 +805,9 @@ type ComponentData struct {
 	// Schemas Source crypto-finder schema versions for this component block. The
 	// server returns `UNSUPPORTED_SCHEMA` rather than rendering producer data
 	// from a newer schema version than this deployment understands.
+	// On a findings-only `/component` block served from the stored report,
+	// `findings` is that report's own `version` (the stored
+	// `findings_schema_version` when the report states none).
 	Schemas *ComponentSchemas `json:"schemas,omitempty"`
 
 	// SupportingCalls Deduped object-lifecycle calls (e.g. IV generation, key-size
@@ -1120,6 +1125,9 @@ type ComponentResult struct {
 // ComponentSchemas Source crypto-finder schema versions for this component block. The
 // server returns `UNSUPPORTED_SCHEMA` rather than rendering producer data
 // from a newer schema version than this deployment understands.
+// On a findings-only `/component` block served from the stored report,
+// `findings` is that report's own `version` (the stored
+// `findings_schema_version` when the report states none).
 type ComponentSchemas struct {
 	Callgraph *string `json:"callgraph,omitempty"`
 	Findings  *string `json:"findings,omitempty"`
@@ -1368,7 +1376,21 @@ type CryptoAsset struct {
 	// array of call-chain frame objects (see `CallNode`). Present only when the
 	// reachability endpoint was called with `include_call_chains: true`.
 	CallChains *[][]CallNode `json:"call_chains,omitempty"`
-	EndLine    int32         `json:"end_line"`
+
+	// ConditionedValue The exact resolved condition a per-value asset was specialized for,
+	// for example `param[0]==SHA-256` (findings schema `1.7+`). It keeps
+	// the assets one rule produced at one call distinct. Findings-only
+	// `/component` blocks only; absent on every other asset.
+	ConditionedValue *string `json:"conditioned_value,omitempty"`
+
+	// DependencyInfo The dependency the asset was found in, as crypto-finder recorded it.
+	// Findings-only `/component` blocks only.
+	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
+
+	// EndCol 1-based column one past the end of the match (exclusive).
+	// Findings-only `/component` blocks only, when crypto-finder recorded it.
+	EndCol  *int32 `json:"end_col,omitempty"`
+	EndLine int32  `json:"end_line"`
 
 	// FindingId Stable hash of the detection. Use as primary key.
 	FindingId string `json:"finding_id"`
@@ -1443,15 +1465,37 @@ type CryptoAsset struct {
 	// rule identity is available. Do not treat omission as "no rule
 	// matched". `id` is the `finding_id` hash input. Envelope
 	// `rules_version` is the ruleset pack.
-	Rules     *[]CryptoRule     `json:"rules,omitempty"`
-	Source    CryptoAssetSource `json:"source"`
-	StartLine int32             `json:"start_line"`
+	Rules *[]CryptoRule `json:"rules,omitempty"`
+
+	// Source `direct` for the component's own code, `indirect` for a
+	// dependency's. A findings-only `/component` block served from the
+	// stored crypto-finder report reports crypto-finder's `dependency`
+	// as `indirect`.
+	Source CryptoAssetSource `json:"source"`
+
+	// StartCol 1-based column where the match starts (inclusive). Findings-only
+	// `/component` blocks only, when crypto-finder recorded it.
+	StartCol  *int32 `json:"start_col,omitempty"`
+	StartLine int32  `json:"start_line"`
+
+	// Status crypto-finder's review state for the asset, such as `pending`.
+	// Findings-only `/component` blocks only. Not an enum.
+	Status *string `json:"status,omitempty"`
 
 	// SupportingCallIds Foreign-key breadcrumb to the block-level `supporting_calls[]`
 	// array. Each string value is a `supporting_calls[].supporting_id`.
 	// Present only when `include_supporting_calls: true` and this
 	// asset's finding graph references supporting calls.
 	SupportingCallIds *[]string `json:"supporting_call_ids,omitempty"`
+
+	// TerminalEndCol End column (exclusive) of the enclosing crypto call when the match is
+	// a nested argument (findings schema `1.7+`). Findings-only `/component`
+	// blocks only.
+	TerminalEndCol *int32 `json:"terminal_end_col,omitempty"`
+
+	// TerminalStartCol Start column of the enclosing crypto call when the match is a nested
+	// argument (findings schema `1.7+`). Findings-only `/component` blocks only.
+	TerminalStartCol *int32 `json:"terminal_start_col,omitempty"`
 }
 
 // CryptoAssetAnalysisCallChains `partial` when a bound truncated the traversal, so `call_chains`
@@ -1480,7 +1524,10 @@ type CryptoAssetAnalysisParameters string
 //     be reached from.
 type CryptoAssetReachability string
 
-// CryptoAssetSource defines model for CryptoAsset.Source.
+// CryptoAssetSource `direct` for the component's own code, `indirect` for a
+// dependency's. A findings-only `/component` block served from the
+// stored crypto-finder report reports crypto-finder's `dependency`
+// as `indirect`.
 type CryptoAssetSource string
 
 // CryptoCall Canonical callable and argument contract for a crypto or supporting call.
@@ -1594,11 +1641,13 @@ type CryptoHintsResponse struct {
 
 // CryptoRule One crypto-finder rule that identified this asset. `id` is the
 // `rule_id` input to `finding_id` (`SHA-256(file_path:start_line:rule_id)[:8]`).
-// `message` and `severity` are present when the served findings bytes
-// carried them (a live findings.json). The reconstructed serve path
-// currently supplies `id` only. Join the envelope `rules_version`
-// ruleset for full rule text in that case. Envelope `rules_version`
-// is the only ruleset pin. There is no per-rule `version`.
+// `message` and `severity` are present when the served findings carried
+// them: a findings-only `/component` block (served from the stored
+// crypto-finder report) has every rule with both. Findings rebuilt from
+// the crypto annotations (every other request) supply the first rule's
+// `id` only. Join the envelope `rules_version` ruleset for full rule text
+// in that case. Envelope `rules_version` is the only ruleset pin. There
+// is no per-rule `version`.
 type CryptoRule struct {
 	Id      string  `json:"id"`
 	Message *string `json:"message,omitempty"`
