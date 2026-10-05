@@ -172,6 +172,7 @@ const (
 // Defines values for MatchedOperationKind.
 const (
 	Call          MatchedOperationKind = "call"
+	Expression    MatchedOperationKind = "expression"
 	FieldAccess   MatchedOperationKind = "field_access"
 	Instantiation MatchedOperationKind = "instantiation"
 	TypeUsage     MatchedOperationKind = "type_usage"
@@ -1532,15 +1533,17 @@ type CryptoAssetSource string
 
 // CryptoCall Canonical callable and argument contract for a crypto or supporting call.
 type CryptoCall struct {
-	Aliases            *[]string        `json:"aliases,omitempty"`
-	CanonicalSignature *string          `json:"canonical_signature,omitempty"`
-	DisplaySymbol      *string          `json:"display_symbol,omitempty"`
-	FunctionName       string           `json:"function_name"`
-	Line               int32            `json:"line"`
-	ParameterRoles     *[]ParameterRole `json:"parameter_roles,omitempty"`
-	ParameterTypes     *[]string        `json:"parameter_types,omitempty"`
-	Parameters         *[]CallArgument  `json:"parameters,omitempty"`
-	ReturnType         *string          `json:"return_type,omitempty"`
+	Aliases            *[]string `json:"aliases,omitempty"`
+	CanonicalSignature *string   `json:"canonical_signature,omitempty"`
+
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
+	DisplaySymbol  *string          `json:"display_symbol,omitempty"`
+	FunctionName   string           `json:"function_name"`
+	Line           int32            `json:"line"`
+	ParameterRoles *[]ParameterRole `json:"parameter_roles,omitempty"`
+	ParameterTypes *[]string        `json:"parameter_types,omitempty"`
+	Parameters     *[]CallArgument  `json:"parameters,omitempty"`
+	ReturnType     *string          `json:"return_type,omitempty"`
 }
 
 // CryptoEntryPoint One entry-point function that can reach one or more cryptographic
@@ -1551,9 +1554,11 @@ type CryptoCall struct {
 // This is the projection that **replaced** the legacy `entry_point_index`
 // field present in callgraph schemas prior to 6.x.
 type CryptoEntryPoint struct {
-	CanonicalSignature string  `json:"canonical_signature"`
-	Class              string  `json:"class"`
-	DisplaySymbol      *string `json:"display_symbol,omitempty"`
+	CanonicalSignature string `json:"canonical_signature"`
+	Class              string `json:"class"`
+
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
+	DisplaySymbol *string `json:"display_symbol,omitempty"`
 
 	// FunctionKey Stable internal key for this function in the callgraph.
 	FunctionKey       string                           `json:"function_key"`
@@ -2027,6 +2032,7 @@ type ForwardAmbiguousCandidate struct {
 
 // ForwardCallAnchor The finding function from which forward traversal starts.
 type ForwardCallAnchor struct {
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
 	DisplaySymbol *string `json:"display_symbol,omitempty"`
 	FunctionKey   string  `json:"function_key"`
 	FunctionName  *string `json:"function_name,omitempty"`
@@ -2069,10 +2075,12 @@ type ForwardCallNode struct {
 	// DependencyInfo Dependency component that owns a function.
 	DependencyInfo *ForwardCallDependency `json:"dependency_info,omitempty"`
 	Depth          int32                  `json:"depth"`
-	DisplaySymbol  *string                `json:"display_symbol,omitempty"`
-	FilePath       *string                `json:"file_path,omitempty"`
-	FunctionKey    string                 `json:"function_key"`
-	FunctionName   *string                `json:"function_name,omitempty"`
+
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
+	DisplaySymbol *string `json:"display_symbol,omitempty"`
+	FilePath      *string `json:"file_path,omitempty"`
+	FunctionKey   string  `json:"function_key"`
+	FunctionName  *string `json:"function_name,omitempty"`
 
 	// SupportingCategory Known supporting-call category when the function is catalogued.
 	SupportingCategory *string `json:"supporting_category,omitempty"`
@@ -2080,14 +2088,16 @@ type ForwardCallNode struct {
 
 // ForwardCallSite Callable identity and argument data flow for a forward edge or candidate.
 type ForwardCallSite struct {
-	Aliases            *[]string       `json:"aliases,omitempty"`
-	CanonicalSignature *string         `json:"canonical_signature,omitempty"`
-	DisplaySymbol      *string         `json:"display_symbol,omitempty"`
-	FunctionName       *string         `json:"function_name,omitempty"`
-	Line               *int32          `json:"line,omitempty"`
-	ParameterTypes     *[]string       `json:"parameter_types,omitempty"`
-	Parameters         *[]CallArgument `json:"parameters,omitempty"`
-	ReturnType         *string         `json:"return_type,omitempty"`
+	Aliases            *[]string `json:"aliases,omitempty"`
+	CanonicalSignature *string   `json:"canonical_signature,omitempty"`
+
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
+	DisplaySymbol  *string         `json:"display_symbol,omitempty"`
+	FunctionName   *string         `json:"function_name,omitempty"`
+	Line           *int32          `json:"line,omitempty"`
+	ParameterTypes *[]string       `json:"parameter_types,omitempty"`
+	Parameters     *[]CallArgument `json:"parameters,omitempty"`
+	ReturnType     *string         `json:"return_type,omitempty"`
 }
 
 // ForwardCalls Bounded forward call graph rooted at the function containing a finding.
@@ -2278,13 +2288,17 @@ type MatchResultConfidence string
 
 // MatchedOperation The cryptographic operation matched by a detection rule.
 type MatchedOperation struct {
-	Expression *string              `json:"expression,omitempty"`
-	Kind       MatchedOperationKind `json:"kind"`
-	Line       int32                `json:"line"`
-	Symbol     string               `json:"symbol"`
+	Expression *string `json:"expression,omitempty"`
+
+	// Kind How the rule matched, from the source text: `call` for an invocation, `type_usage` for a bare type or API reference, `expression` for anything else. `instantiation` and `field_access` are reserved and not emitted today.
+	Kind MatchedOperationKind `json:"kind"`
+	Line int32                `json:"line"`
+
+	// Symbol The API the rule names. It equals the entry point's `display_symbol` only when the entry point is that API itself (`chain_depth` 1, `kind` `type_usage`).
+	Symbol string `json:"symbol"`
 }
 
-// MatchedOperationKind defines model for MatchedOperation.Kind.
+// MatchedOperationKind How the rule matched, from the source text: `call` for an invocation, `type_usage` for a bare type or API reference, `expression` for anything else. `instantiation` and `field_access` are reserved and not emitted today.
 type MatchedOperationKind string
 
 // OSADLInfo OSADL compliance metadata for a license.
@@ -2690,7 +2704,9 @@ type SupportingCall struct {
 	// Category Producer-owned semantic category. Contract lifecycle values are
 	// `factory`, `config`, `operation`, and `output`; other producer
 	// categories remain forward-compatible.
-	Category      *string `json:"category,omitempty"`
+	Category *string `json:"category,omitempty"`
+
+	// DisplaySymbol Fully qualified name of the function as its language spells it: package or module, class and method (`org.bouncycastle.crypto.engines.AESEngine.init`, `cryptography.fernet.Fernet.encrypt`). Equals `function_name`, except that a constructor is shown as `Class.Class`.
 	DisplaySymbol *string `json:"display_symbol,omitempty"`
 	EndLine       *int32  `json:"end_line,omitempty"`
 	FilePath      *string `json:"file_path,omitempty"`
