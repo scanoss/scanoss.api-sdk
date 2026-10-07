@@ -1960,7 +1960,7 @@ type FileResult struct {
 	// MatchType Full-file match, partial (snippet) match, or no match.
 	MatchType FileResultMatchType `json:"match_type"`
 
-	// Matches Matched KB entries for this file.
+	// Matches Matched KB entries for this file, best first. The first is the component the file originates from: for a file inside a dependency the project vendors (e.g. `deps/uv/`), that dependency. The entries that redistribute the file (forks, mirrors, packagings, projects vendoring it) follow.
 	Matches []MatchResult `json:"matches"`
 
 	// Path The scanned file path.
@@ -2572,7 +2572,7 @@ type ScanRawResponse struct {
 
 // ScanResult batchScanner multi-pass report: a `files` array of per-file match entries and a `components` map keyed by url_hash. Produced by /wfp/scan (not raw engine output).
 type ScanResult struct {
-	// Components Resolved components keyed by url_hash. Extra fields may be present.
+	// Components Resolved components keyed by url_hash. Extra fields may be present. The map has no order: a file's candidates, in order, are its `matches`.
 	Components map[string]ComponentResult `json:"components,omitempty"`
 
 	// Files One entry per scanned file (order is unspecified).
