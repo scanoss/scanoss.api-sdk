@@ -2597,9 +2597,13 @@ type ScanServer struct {
 	// ElapsedMs Scan wall-clock time
 	ElapsedMs int `json:"elapsed_ms,omitempty"`
 
+	// EngineVersion SCANOSS engine version that answered the scan.
+	EngineVersion string `json:"engine_version,omitempty"`
+
 	// Hostname Host that ran the scan.
-	Hostname      string         `json:"hostname,omitempty"`
-	KnowledgeBase *KnowledgeBase `json:"knowledge_base,omitempty"`
+	Hostname            string         `json:"hostname,omitempty"`
+	KnowledgeBase       *KnowledgeBase `json:"knowledge_base,omitempty"`
+	KnowledgeBaseLatest *KnowledgeBase `json:"knowledge_base_latest,omitempty"`
 }
 
 // SearchCriteria Optional request-level search configuration applied to every component
