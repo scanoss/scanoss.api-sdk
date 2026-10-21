@@ -114,6 +114,8 @@ const (
 
 // Defines values for DetectorEnum.
 const (
+	GoLicenseDetector DetectorEnum = "go-license-detector"
+	Licensecheck      DetectorEnum = "licensecheck"
 	Licenseclassifier DetectorEnum = "licenseclassifier"
 	Nomos             DetectorEnum = "nomos"
 	Scancode          DetectorEnum = "scancode"
@@ -1238,7 +1240,7 @@ type CopyrightDetection struct {
 	// Copyright Detected copyright statement (verbatim).
 	Copyright string `json:"copyright"`
 
-	// Detector Name of the detector that produced the evidence.
+	// Detector Name of the detector that produced the evidence. The Postgres backend emits licenseclassifier; the LDB backend decodes the detector from each hint's sourceId (go-minr engine ids): licensecheck, go-license-detector, nomos, scancode (ScanCode corpus or SPDX-tag), spdx (own SPDX scan). Copyright regex hints decode as scanoss.
 	Detector DetectorEnum `json:"detector"`
 
 	// Evidence Line range or byte range of the evidence, depending on the server's
@@ -1904,7 +1906,7 @@ type DependencyResolutionError struct {
 	RequestedVersion string `json:"requested_version"`
 }
 
-// DetectorEnum Name of the detector that produced the evidence.
+// DetectorEnum Name of the detector that produced the evidence. The Postgres backend emits licenseclassifier; the LDB backend decodes the detector from each hint's sourceId (go-minr engine ids): licensecheck, go-license-detector, nomos, scancode (ScanCode corpus or SPDX-tag), spdx (own SPDX scan). Copyright regex hints decode as scanoss.
 type DetectorEnum string
 
 // EPSS defines model for EPSS.
@@ -2186,7 +2188,7 @@ type LicenseDetailsResponse struct {
 type LicenseDetection struct {
 	Confidence float32 `json:"confidence"`
 
-	// Detector Name of the detector that produced the evidence.
+	// Detector Name of the detector that produced the evidence. The Postgres backend emits licenseclassifier; the LDB backend decodes the detector from each hint's sourceId (go-minr engine ids): licensecheck, go-license-detector, nomos, scancode (ScanCode corpus or SPDX-tag), spdx (own SPDX scan). Copyright regex hints decode as scanoss.
 	Detector DetectorEnum `json:"detector"`
 
 	// Evidence Line range or byte range of the evidence, depending on the server's
