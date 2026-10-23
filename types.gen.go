@@ -2269,6 +2269,9 @@ type MatchResult struct {
 	// Confidence Attribution reliability grade for this match: LOW, MEDIUM or HIGH.
 	Confidence MatchResultConfidence `json:"confidence"`
 
+	// Context Full-file matches only; absent for snippet matches. Which context scopes selected this match: `P` project ranking, `F` the file's folder, `N` the file alone, `O` origin by path. Several letters when scopes agree (`PF`). With `max_components=N`, `P` marks the N ranking matches.
+	Context string `json:"context,omitempty"`
+
 	// InputLineRanges Snippet matches only — matched line ranges in the input file.
 	InputLineRanges []LineRange `json:"input_line_ranges,omitempty"`
 
@@ -3325,6 +3328,9 @@ type GetV3VulnerabilitiesVulnerabilitiesParamsEncoded string
 
 // PostScanBatchParams defines parameters for PostScanBatch.
 type PostScanBatchParams struct {
+	// MaxComponents How many candidate components each match reports: a positive integer, or `all`. Leading zeros are accepted (`007` is 7). The largest accepted integer is the platform int, 9223372036854775807 on 64-bit; a larger number is `400 INVALID_QUERY`. Absent = the server's `scan.batch.pipeline.max_components` for full-file matches and one candidate per snippet block. A number `N` bounds the project ranking of a full-file match to `N` (context picks come on top, labelled in `context`), reports up to `N` per snippet block and widens the allowed set to at least `N` purls; `all` removes every cap. Anything else is `400 INVALID_QUERY`. Mode A: must be the same on every block of an open session. A repeated parameter is `400 INVALID_QUERY`.
+	MaxComponents *string `form:"max_components,omitempty" json:"max_components,omitempty"`
+
 	// XScanId Absent → Mode B (synchronous single-shot). Present → Mode A (chunked async): a client-generated canonical lowercase UUIDv7, sent on every block of the session.
 	XScanId *openapi_types.UUID `json:"X-Scan-Id,omitempty"`
 
