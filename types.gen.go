@@ -1445,6 +1445,14 @@ type CryptoAsset struct {
 	// ParameterConditions Structured producer-owned parameter predicates.
 	ParameterConditions *[]ParameterCondition `json:"parameter_conditions,omitempty"`
 
+	// Pqc Post-quantum classification of one finding, from the shared PQC
+	// dataset. crypto-finder writes it when the component is mined; the
+	// service serves it as mined when its `dataset_version` is the service's
+	// dataset version or newer, and recomputes it otherwise, so a dataset
+	// release reaches mined findings without re-mining. It is the only place
+	// a response carries PQC. Omitted when the asset names no algorithm.
+	Pqc *PQCClassification `json:"pqc,omitempty"`
+
 	// Reachability Whether an entry point reaches this asset, and how confidently.
 	// Replaced the legacy `reachable` boolean, which a three-state answer
 	// could not express. Present only when the reachability endpoint was
@@ -2322,6 +2330,49 @@ type ObligationsResponse struct {
 
 	// Status Outcome of a licenses-service call (papi common StatusResponse).
 	Status *LookupStatusResponse `json:"status,omitempty"`
+}
+
+// PQCClassification Post-quantum classification of one finding, from the shared PQC
+// dataset. crypto-finder writes it when the component is mined; the
+// service serves it as mined when its `dataset_version` is the service's
+// dataset version or newer, and recomputes it otherwise, so a dataset
+// release reaches mined findings without re-mining. It is the only place
+// a response carries PQC. Omitted when the asset names no algorithm.
+type PQCClassification struct {
+	// DatasetVersion Version of the PQC dataset that produced the verdict.
+	DatasetVersion string `json:"dataset_version"`
+
+	// Deadline Earliest year any cited source sets for the family, the worst case to plan against.
+	Deadline *int `json:"deadline,omitempty"`
+
+	// Deadlines One cited schedule per source, only where an official source dates the family.
+	Deadlines *[]PQCDeadline `json:"deadlines,omitempty"`
+
+	// Family Family the status was read from. Omitted when `unassessed`.
+	Family *string `json:"family,omitempty"`
+
+	// Status `vulnerable`, `safe`, `hybrid`, `not_applicable` or `unassessed`
+	// (the algorithm is not recognized). Not an enum: a new value must
+	// not fail SDK unmarshal.
+	Status string `json:"status"`
+}
+
+// PQCDeadline defines model for PQCDeadline.
+type PQCDeadline struct {
+	// Citation What the source states, with its table or section.
+	Citation string `json:"citation"`
+
+	// DeprecatedAfter Year after which the source deprecates the family; omitted when it sets none.
+	DeprecatedAfter *int `json:"deprecated_after,omitempty"`
+
+	// DisallowedAfter Year after which the source disallows the family; omitted when it sets none.
+	DisallowedAfter *int `json:"disallowed_after,omitempty"`
+
+	// MigrateBy Year by which the source requires migrating off the family; omitted when it sets none.
+	MigrateBy *int `json:"migrate_by,omitempty"`
+
+	// Source The document that sets the schedule, e.g. `NIST IR 8547` or `CNSA 2.0`.
+	Source string `json:"source"`
 }
 
 // ParameterCondition Parsed form of one crypto rule parameter predicate.
