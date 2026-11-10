@@ -2550,6 +2550,29 @@ type Request struct {
 	Requirement *string `json:"requirement,omitempty"`
 }
 
+// RulesetRelease defines model for RulesetRelease.
+type RulesetRelease struct {
+	CreatedAt     time.Time `json:"created_at"`
+	Description   *string   `json:"description,omitempty"`
+	Domain        string    `json:"domain"`
+	Format        string    `json:"format"`
+	Name          string    `json:"name"`
+	PayloadSha256 string    `json:"payload_sha256"`
+	PayloadSize   int64     `json:"payload_size"`
+	Version       string    `json:"version"`
+}
+
+// RulesetSummary defines model for RulesetSummary.
+type RulesetSummary struct {
+	// Domain crypto, ai, vuln or mcp
+	Domain string `json:"domain"`
+
+	// Latest Version the latest symlink points at; empty when none
+	Latest   string   `json:"latest"`
+	Name     string   `json:"name"`
+	Versions []string `json:"versions"`
+}
+
 // SPDXInfo SPDX registry metadata for a license.
 type SPDXInfo struct {
 	DetailsUrl    *string   `json:"details_url,omitempty"`
@@ -2850,6 +2873,12 @@ type PurlQuery = string
 
 // RequirementQuery defines model for RequirementQuery.
 type RequirementQuery = string
+
+// RulesetNamePath defines model for RulesetNamePath.
+type RulesetNamePath = string
+
+// RulesetVersionPath defines model for RulesetVersionPath.
+type RulesetVersionPath = string
 
 // SearchEncoded defines model for SearchEncoded.
 type SearchEncoded string
@@ -3303,6 +3332,18 @@ type GetScanRawParams struct {
 
 	// IgnoreFileExt Ignore file extension in snippet matching (--ignore-file-ext). Gate: match_config_allowed.
 	IgnoreFileExt *bool `form:"ignore_file_ext,omitempty" json:"ignore_file_ext,omitempty"`
+}
+
+// DownloadRulesetParams defines parameters for DownloadRuleset.
+type DownloadRulesetParams struct {
+	// XScanossKeyRef Opaque reference to the caller's API key (set by the gateway)
+	XScanossKeyRef *string `json:"X-Scanoss-Key-Ref,omitempty"`
+
+	// XScanossKeyExpires Expiry of the caller's API key, RFC3339 (set by the gateway)
+	XScanossKeyExpires *time.Time `json:"X-Scanoss-Key-Expires,omitempty"`
+
+	// XTenantName The caller's tenant (set by the gateway); selects the marks of a marked release
+	XTenantName *string `json:"X-Tenant-Name,omitempty"`
 }
 
 // PostScanSnippetsTextBody defines parameters for PostScanSnippets.
