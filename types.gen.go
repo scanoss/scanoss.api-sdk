@@ -792,7 +792,13 @@ type ComponentData struct {
 	// pre-release such as `4.1.112.CR1` sorts below it.
 	// Fallbacks pair with `fallback: true`; the block stays `READY`.
 	Method *ComponentDataMethod `json:"method,omitempty"`
-	Purl   string               `json:"purl"`
+
+	// MigrationSummary One entry per component holding quantum-vulnerable findings in this
+	// block. An indirect finding that names no dependency belongs to no
+	// entry, so the counts can add up to fewer than the findings carrying
+	// `migration`. Omitted when none.
+	MigrationSummary *[]PQCMigrationSummary `json:"migration_summary,omitempty"`
+	Purl             string                 `json:"purl"`
 
 	// RequestedVersion What the client asked for — the exact version on a pin, or the
 	// requirement string itself on a range. `/dep-tree` only.
@@ -1443,6 +1449,11 @@ type CryptoAsset struct {
 	// explicit provider evidence are preserved unchanged; the service does
 	// not synthesize provider or crypto-module claims.
 	Metadata CryptoFinderMetadata `json:"metadata"`
+
+	// Migration What moving a quantum-vulnerable finding to post-quantum takes, from the
+	// shared PQC dataset, computed when served. Present only when
+	// `pqc.status` is `vulnerable`.
+	Migration *PQCMigration `json:"migration,omitempty"`
 
 	// OccurrenceKey Structural identity of the occurrence, `v1:` followed by 16 lowercase
 	// hex characters (findings schema `1.5+`).
@@ -2399,6 +2410,53 @@ type PQCDeadline struct {
 	MigrateBy *int `json:"migrate_by,omitempty"`
 
 	// Source The document that sets the schedule, e.g. `NIST IR 8547` or `CNSA 2.0`.
+	Source string `json:"source"`
+}
+
+// PQCMigration What moving a quantum-vulnerable finding to post-quantum takes, from the
+// shared PQC dataset, computed when served. Present only when
+// `pqc.status` is `vulnerable`.
+type PQCMigration struct {
+	// Inferred The rule does not say the operation, so the path is read from the algorithm family; a "replace the library" path keeps the flag.
+	Inferred bool `json:"inferred"`
+
+	// Path `upgrade` (the dependency that holds the crypto supports ML-KEM or
+	// ML-DSA: bump it to that version, or, when it is already there,
+	// switch to the algorithm), `swap` (replace the algorithm, same API
+	// shape), `redesign` (the API shape changes) or `blocked` (no
+	// post-quantum alternative yet: support `none`, `planned` or
+	// `not_applicable`, no dataset entry, no purl to look the dependency
+	// up by, or own code on a library with none). Not an enum: a new value
+	// must not fail SDK unmarshal.
+	Path string `json:"path"`
+
+	// Reason One line explaining the path.
+	Reason string `json:"reason"`
+
+	// SizeRisk A context where post-quantum sizes break limits; `jwt` for a use inside a JOSE/JWT library. Omitted when none.
+	SizeRisk *string `json:"size_risk,omitempty"`
+}
+
+// PQCMigrationSummary The migration paths of one component's quantum-vulnerable findings in
+// the block: the requested component for `direct` findings, a dependency
+// for `indirect` ones.
+type PQCMigrationSummary struct {
+	// Component The component's purl (its module when it has no purl), with its version when known.
+	Component string `json:"component"`
+
+	// Counts Findings per path.
+	Counts map[string]int `json:"counts"`
+
+	// Inferred Findings whose path was inferred from the family. Omitted when none.
+	Inferred *int `json:"inferred,omitempty"`
+
+	// Path The worst path among the component's findings.
+	Path string `json:"path"`
+
+	// SizeRisk The distinct size risks of the component's findings. Omitted when none.
+	SizeRisk *[]string `json:"size_risk,omitempty"`
+
+	// Source `direct` or `indirect`.
 	Source string `json:"source"`
 }
 
