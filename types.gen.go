@@ -150,6 +150,7 @@ const (
 const (
 	InfoCodeCOMPONENTNOTFOUND       InfoCode = "COMPONENT_NOT_FOUND"
 	InfoCodeINVALIDPURL             InfoCode = "INVALID_PURL"
+	InfoCodeNOINFO                  InfoCode = "NO_INFO"
 	InfoCodeRELEASENOTESUNAVAILABLE InfoCode = "RELEASE_NOTES_UNAVAILABLE"
 	InfoCodeREQUIREMENTNOTMET       InfoCode = "REQUIREMENT_NOT_MET"
 	InfoCodeRESOLVEFAILED           InfoCode = "RESOLVE_FAILED"
@@ -1098,6 +1099,22 @@ type ComponentReachabilityResponse struct {
 	UnmatchedSignatures *[]string `json:"unmatched_signatures,omitempty"`
 }
 
+// ComponentRemediationInfo One response entry. On a hit it is the request echo (`purl`,
+// `requirement` as sent, `version` as stored) merged with the opaque
+// Remediation Intelligence payload's top-level keys (shown here as
+// `additionalProperties`). On a miss it carries only the echo plus
+// `info_code`/`info_message`.
+type ComponentRemediationInfo struct {
+	// InfoCode Per-item resolution outcome. `REQUIREMENT_NOT_MET` is informational
+	// (a nearest-version was substituted); the others mark failures.
+	InfoCode             *InfoCode              `json:"info_code,omitempty"`
+	InfoMessage          *string                `json:"info_message,omitempty"`
+	Purl                 string                 `json:"purl"`
+	Requirement          *string                `json:"requirement,omitempty"`
+	Version              *string                `json:"version,omitempty"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
 // ComponentRequest Identifies one component by PURL and optional version constraint.
 type ComponentRequest struct {
 	// Purl Package URL identifying the component.
@@ -1678,6 +1695,15 @@ type CryptoVersionsInRangeResponse struct {
 	Status     BatchStatus                `json:"status"`
 }
 
+// DataAsOf Freshness of the served data, computed over the hits: the oldest
+// `scored_at` and the oldest `kev_snapshot`/`epss_snapshot`. Null when a
+// response has no hits.
+type DataAsOf struct {
+	EpssSnapshot *openapi_types.Date `json:"epss_snapshot,omitempty"`
+	KevSnapshot  *openapi_types.Date `json:"kev_snapshot,omitempty"`
+	ScoredAt     *time.Time          `json:"scored_at,omitempty"`
+}
+
 // DataFlowSource One step in the data-flow chain producing an argument value at a
 // call site. `type` discriminates which fields are meaningful:
 //
@@ -1931,6 +1957,7 @@ type ErrorBody struct {
 		//   - EMPTY_BATCH
 		//   - INVALID_PURL, COMPONENT_NOT_FOUND, VERSION_NOT_FOUND
 		//   - NOTICE_NOT_FOUND, FILE_NOT_FOUND, MZ_READ_FAILED
+		//   - EMPTY_BATCH, PAYLOAD_TOO_LARGE
 		//   - TIMEOUT, INTERNAL_ERROR
 		Code    string `json:"code"`
 		Message string `json:"message"`
@@ -2539,6 +2566,17 @@ type ReleasesResponse struct {
 	Component ReleaseComponent `json:"component"`
 	Releases  []Release        `json:"releases"`
 	Status    BatchStatus      `json:"status"`
+}
+
+// RemediationResponse defines model for RemediationResponse.
+type RemediationResponse struct {
+	Components []ComponentRemediationInfo `json:"components"`
+
+	// DataAsOf Freshness of the served data, computed over the hits: the oldest
+	// `scored_at` and the oldest `kev_snapshot`/`epss_snapshot`. Null when a
+	// response has no hits.
+	DataAsOf *DataAsOf   `json:"data_as_of,omitempty"`
+	Status   BatchStatus `json:"status"`
 }
 
 // Request defines model for Request.
@@ -3154,6 +3192,18 @@ type GetV3CryptographyHintsRangeParamsOnVersionNotFound string
 // GetV3CryptographyHintsRangeParamsEncoded defines parameters for GetV3CryptographyHintsRange.
 type GetV3CryptographyHintsRangeParamsEncoded string
 
+// DownloadRulesetParams defines parameters for DownloadRuleset.
+type DownloadRulesetParams struct {
+	// XScanossKeyRef Opaque reference to the caller's API key (set by the gateway)
+	XScanossKeyRef *string `json:"X-Scanoss-Key-Ref,omitempty"`
+
+	// XScanossKeyExpires Expiry of the caller's API key, RFC3339 (set by the gateway)
+	XScanossKeyExpires *time.Time `json:"X-Scanoss-Key-Expires,omitempty"`
+
+	// XTenantName The caller's tenant (set by the gateway); selects the marks of a marked release
+	XTenantName *string `json:"X-Tenant-Name,omitempty"`
+}
+
 // GetV3DependenciesDependenciesParams defines parameters for GetV3DependenciesDependencies.
 type GetV3DependenciesDependenciesParams struct {
 	// Purl Package URL (e.g. `pkg:github/scanoss/engine`)
@@ -3334,16 +3384,13 @@ type GetScanRawParams struct {
 	IgnoreFileExt *bool `form:"ignore_file_ext,omitempty" json:"ignore_file_ext,omitempty"`
 }
 
-// DownloadRulesetParams defines parameters for DownloadRuleset.
-type DownloadRulesetParams struct {
-	// XScanossKeyRef Opaque reference to the caller's API key (set by the gateway)
-	XScanossKeyRef *string `json:"X-Scanoss-Key-Ref,omitempty"`
+// GetV3RemediationIntelligenceParams defines parameters for GetV3RemediationIntelligence.
+type GetV3RemediationIntelligenceParams struct {
+	// Purl Package URL (e.g. `pkg:github/scanoss/engine`)
+	Purl PurlQuery `form:"purl" json:"purl"`
 
-	// XScanossKeyExpires Expiry of the caller's API key, RFC3339 (set by the gateway)
-	XScanossKeyExpires *time.Time `json:"X-Scanoss-Key-Expires,omitempty"`
-
-	// XTenantName The caller's tenant (set by the gateway); selects the marks of a marked release
-	XTenantName *string `json:"X-Tenant-Name,omitempty"`
+	// Requirement Optional version requirement (e.g. `v5.4.5`)
+	Requirement *RequirementQuery `form:"requirement,omitempty" json:"requirement,omitempty"`
 }
 
 // PostScanSnippetsTextBody defines parameters for PostScanSnippets.
@@ -3492,6 +3539,9 @@ type PostLicenseEvidenceJSONRequestBody = BatchRequest
 // PostLicensesComponentsJSONRequestBody defines body for PostLicensesComponents for application/json ContentType.
 type PostLicensesComponentsJSONRequestBody = BatchRequest
 
+// PostV3RemediationIntelligenceJSONRequestBody defines body for PostV3RemediationIntelligence for application/json ContentType.
+type PostV3RemediationIntelligenceJSONRequestBody = BatchRequest
+
 // PostScanSnippetsTextRequestBody defines body for PostScanSnippets for text/plain ContentType.
 type PostScanSnippetsTextRequestBody = PostScanSnippetsTextBody
 
@@ -3503,6 +3553,132 @@ type PostV3VulnerabilitiesVulnerabilitiesJSONRequestBody = BatchRequest
 
 // PostScanDirectMultipartRequestBody defines body for PostScanDirect for multipart/form-data ContentType.
 type PostScanDirectMultipartRequestBody PostScanDirectMultipartBody
+
+// Getter for additional properties for ComponentRemediationInfo. Returns the specified
+// element and whether it was found
+func (a ComponentRemediationInfo) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for ComponentRemediationInfo
+func (a *ComponentRemediationInfo) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ComponentRemediationInfo to handle AdditionalProperties
+func (a *ComponentRemediationInfo) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["info_code"]; found {
+		err = json.Unmarshal(raw, &a.InfoCode)
+		if err != nil {
+			return fmt.Errorf("error reading 'info_code': %w", err)
+		}
+		delete(object, "info_code")
+	}
+
+	if raw, found := object["info_message"]; found {
+		err = json.Unmarshal(raw, &a.InfoMessage)
+		if err != nil {
+			return fmt.Errorf("error reading 'info_message': %w", err)
+		}
+		delete(object, "info_message")
+	}
+
+	if raw, found := object["purl"]; found {
+		err = json.Unmarshal(raw, &a.Purl)
+		if err != nil {
+			return fmt.Errorf("error reading 'purl': %w", err)
+		}
+		delete(object, "purl")
+	}
+
+	if raw, found := object["requirement"]; found {
+		err = json.Unmarshal(raw, &a.Requirement)
+		if err != nil {
+			return fmt.Errorf("error reading 'requirement': %w", err)
+		}
+		delete(object, "requirement")
+	}
+
+	if raw, found := object["version"]; found {
+		err = json.Unmarshal(raw, &a.Version)
+		if err != nil {
+			return fmt.Errorf("error reading 'version': %w", err)
+		}
+		delete(object, "version")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ComponentRemediationInfo to handle AdditionalProperties
+func (a ComponentRemediationInfo) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	if a.InfoCode != nil {
+		object["info_code"], err = json.Marshal(a.InfoCode)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'info_code': %w", err)
+		}
+	}
+
+	if a.InfoMessage != nil {
+		object["info_message"], err = json.Marshal(a.InfoMessage)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'info_message': %w", err)
+		}
+	}
+
+	object["purl"], err = json.Marshal(a.Purl)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'purl': %w", err)
+	}
+
+	if a.Requirement != nil {
+		object["requirement"], err = json.Marshal(a.Requirement)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'requirement': %w", err)
+		}
+	}
+
+	if a.Version != nil {
+		object["version"], err = json.Marshal(a.Version)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'version': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // Getter for additional properties for CryptoFinderMetadata. Returns the specified
 // element and whether it was found
