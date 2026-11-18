@@ -213,6 +213,38 @@ const (
 	Ok       ReadinessResponseStatus = "ok"
 )
 
+// Defines values for ResolveCandidateMatchedBy.
+const (
+	MatchedByCRC64   ResolveCandidateMatchedBy = "crc64"
+	MatchedByCommit  ResolveCandidateMatchedBy = "commit"
+	MatchedByMD5     ResolveCandidateMatchedBy = "md5"
+	MatchedByName    ResolveCandidateMatchedBy = "name"
+	MatchedByURLRule ResolveCandidateMatchedBy = "url_rule"
+)
+
+// Defines values for ResolveCandidateNotes.
+const (
+	NoteDistroPackage        ResolveCandidateNotes = "DISTRO_PACKAGE"
+	NoteMatchedByName        ResolveCandidateNotes = "MATCHED_BY_NAME"
+	NoteParentProject        ResolveCandidateNotes = "PARENT_PROJECT"
+	NoteSourceURLMatch       ResolveCandidateNotes = "SOURCE_URL_MATCH"
+	NoteVersionNotFound      ResolveCandidateNotes = "VERSION_NOT_FOUND"
+	NoteVersionSuffixIgnored ResolveCandidateNotes = "VERSION_SUFFIX_IGNORED"
+)
+
+// Defines values for ResolveCandidateVersionMatch.
+const (
+	VersionMatchApproximate ResolveCandidateVersionMatch = "approximate"
+	VersionMatchExact       ResolveCandidateVersionMatch = "exact"
+	VersionMatchNone        ResolveCandidateVersionMatch = "none"
+)
+
+// Defines values for ResolveResultInfoCode.
+const (
+	ResolveInfoInvalidSource ResolveResultInfoCode = "INVALID_SOURCE"
+	ResolveInfoNoMatch       ResolveResultInfoCode = "NO_MATCH"
+)
+
 // Defines values for ScanEnvelopeStatus.
 const (
 	Completed ScanEnvelopeStatus = "completed"
@@ -2646,6 +2678,125 @@ type Request struct {
 	Requirement *string `json:"requirement,omitempty"`
 }
 
+// ResolveCandidate defines model for ResolveCandidate.
+type ResolveCandidate struct {
+	// MatchedBy `md5` / `crc64`: the file's hash. `url_rule`: the PURL the source
+	// URL names. `commit`: that PURL, at the version equal to the URL's
+	// `@<commit>`. `name`: no hash or URL candidate; the component's
+	// name and a version match the hints.
+	MatchedBy ResolveCandidateMatchedBy `json:"matched_by"`
+
+	// NameMatch The hinted name equals the PURL's name or its namespace's last segment.
+	NameMatch bool `json:"name_match"`
+
+	// Notes Omitted when empty. `SOURCE_URL_MATCH`: the PURL the source URL
+	// names. `PARENT_PROJECT`: with `SOURCE_URL_MATCH`, the URL names a
+	// package inside a project that hosts several (a SourceForge
+	// project, a GNU directory) and the knowledge base has only the
+	// project; its version may be another package's.
+	// `VERSION_SUFFIX_IGNORED`: `version_match` is `approximate`.
+	// `VERSION_NOT_FOUND`: a version was hinted and none of the
+	// candidate's versions matches it (the version shown is its best
+	// one). `MATCHED_BY_NAME`: found by the name fallback.
+	// `DISTRO_PACKAGE`: the PURL type is a distribution or
+	// redistribution package type (`deb`, `rpm`, `apk`, `conan`,
+	// `conda`, `nuget`, `maven`).
+	Notes *[]ResolveCandidateNotes `json:"notes,omitempty"`
+
+	// Purl Versionless PURL as stored in the catalog.
+	Purl string `json:"purl"`
+
+	// Version The PURL's version matching the hint, else its highest (numeric
+	// versions above branch names and commits). For a `commit`
+	// candidate, the stored version equal to the URL's commit (full or
+	// 7-character). For a `url_rule` candidate, the stored version
+	// matching the hint or a ref in the URL (tag, file version, commit),
+	// then the hint without its build-system suffix; empty when none is
+	// stored, e.g. a git URL without a ref and no version hint.
+	Version string `json:"version"`
+
+	// VersionMatch `exact`: the version equals the hinted version (or is the URL's
+	// commit). `approximate`: equal only after dropping a build-system
+	// suffix (`+git…`, `+svn…`, `-r<N>`) from the hint. `none`: no
+	// hint, or no version matches it.
+	VersionMatch ResolveCandidateVersionMatch `json:"version_match"`
+}
+
+// ResolveCandidateMatchedBy `md5` / `crc64`: the file's hash. `url_rule`: the PURL the source
+// URL names. `commit`: that PURL, at the version equal to the URL's
+// `@<commit>`. `name`: no hash or URL candidate; the component's
+// name and a version match the hints.
+type ResolveCandidateMatchedBy string
+
+// ResolveCandidateNotes defines model for ResolveCandidate.Notes.
+type ResolveCandidateNotes string
+
+// ResolveCandidateVersionMatch `exact`: the version equals the hinted version (or is the URL's
+// commit). `approximate`: equal only after dropping a build-system
+// suffix (`+git…`, `+svn…`, `-r<N>`) from the hint. `none`: no
+// hint, or no version matches it.
+type ResolveCandidateVersionMatch string
+
+// ResolveRequest defines model for ResolveRequest.
+type ResolveRequest struct {
+	MaxCandidates *int            `json:"max_candidates,omitempty"`
+	Sources       []ResolveSource `json:"sources"`
+}
+
+// ResolveResponse defines model for ResolveResponse.
+type ResolveResponse struct {
+	Results []ResolveResult `json:"results"`
+	Status  BatchStatus     `json:"status"`
+}
+
+// ResolveResult defines model for ResolveResult.
+type ResolveResult struct {
+	// Candidates Best first; the first is the server's pick. Empty when `info_code` is set.
+	Candidates []ResolveCandidate `json:"candidates"`
+	Id         string             `json:"id"`
+
+	// InfoCode Null on a match.
+	InfoCode    *ResolveResultInfoCode `json:"info_code"`
+	InfoMessage *string                `json:"info_message,omitempty"`
+
+	// Total Distinct candidates found, before truncation to `max_candidates`.
+	// A lower bound when a hash (500 rows) or a name fallback (200 rows
+	// per name and version) reached its row cap.
+	Total int `json:"total"`
+}
+
+// ResolveResultInfoCode Null on a match.
+type ResolveResultInfoCode string
+
+// ResolveSource One build-system source. A non-empty `id` and at least one of `md5`, `crc64`, `url` are required, else the result is `INVALID_SOURCE`.
+type ResolveSource struct {
+	// Crc64 CRC64-XZ of the downloaded file, 16 hex characters (big-endian, as the engine prints it), any case.
+	Crc64 *string `json:"crc64,omitempty"`
+
+	// Id Opaque, non-empty, echoed back in the result.
+	Id string `json:"id"`
+
+	// Md5 MD5 of the downloaded file, 32 hex characters, any case.
+	Md5 *string `json:"md5,omitempty"`
+
+	// Name Ranking hint, compared with the PURL's name and its namespace's last
+	// segment (also without a `python3-` or `lib` prefix). With
+	// `version`, also the key of the name fallback.
+	Name *string `json:"name,omitempty"`
+
+	// Url Download URL. Yocto forms (`git+https://…@<commit>`, `git+git://…`,
+	// `;param=…` suffixes, doubled slashes,
+	// `crate://crates.io/<name>/<version>`) are accepted.
+	Url *string `json:"url,omitempty"`
+
+	// Version Version hint, sent as the build system has it (`2.39+git`,
+	// `5.2.21-r0`). Compared after trimming, lowercasing, dropping a
+	// leading `v` and normalizing to semver when it parses (`2.39` equals
+	// `2.39.0`); then, for `approximate`, without a `+git…`/`+svn…`
+	// suffix and a trailing `-r<N>` recipe revision.
+	Version *string `json:"version,omitempty"`
+}
+
 // RulesetRelease defines model for RulesetRelease.
 type RulesetRelease struct {
 	CreatedAt     time.Time `json:"created_at"`
@@ -2799,6 +2950,9 @@ type SearchCriteria struct {
 	// OnVersionNotFound Version fallback when the requested version has no data:
 	// `strict` (no fallback), `show_latest`, `show_closest_lt`,
 	// `show_closest_gt`, `show_any`. Not applied to range endpoints.
+	// The latest version is the highest release; pre-releases, and
+	// labels that are not versions (branch names, commits), only when
+	// there is no release.
 	OnVersionNotFound *SearchCriteriaOnVersionNotFound `json:"on_version_not_found,omitempty"`
 
 	// ShowRelatedResults Enable the source-purl fallback lookup.
@@ -2817,6 +2971,9 @@ type SearchCriteriaEncoded string
 // SearchCriteriaOnVersionNotFound Version fallback when the requested version has no data:
 // `strict` (no fallback), `show_latest`, `show_closest_lt`,
 // `show_closest_gt`, `show_any`. Not applied to range endpoints.
+// The latest version is the highest release; pre-releases, and
+// labels that are not versions (branch names, commits), only when
+// there is no release.
 type SearchCriteriaOnVersionNotFound string
 
 // SnippetCandidate defines model for SnippetCandidate.
@@ -3542,6 +3699,9 @@ type PostScanDirectMultipartBody struct {
 
 // PostComponentsReleasesJSONRequestBody defines body for PostComponentsReleases for application/json ContentType.
 type PostComponentsReleasesJSONRequestBody = BatchRequest
+
+// PostComponentsResolveJSONRequestBody defines body for PostComponentsResolve for application/json ContentType.
+type PostComponentsResolveJSONRequestBody = ResolveRequest
 
 // PostScanComponentsJSONRequestBody defines body for PostScanComponents for application/json ContentType.
 type PostScanComponentsJSONRequestBody = ScanSbom
