@@ -11,6 +11,11 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ApplicationReachabilityRequestSchemaVersion.
+const (
+	N1 ApplicationReachabilityRequestSchemaVersion = "1"
+)
+
 // Defines values for BatchStatusStatus.
 const (
 	BatchStatusStatusERROR          BatchStatusStatus = "ERROR"
@@ -77,6 +82,17 @@ const (
 	Reachable     CryptoAssetReachability = "reachable"
 	Unknown       CryptoAssetReachability = "unknown"
 	Unreachable   CryptoAssetReachability = "unreachable"
+)
+
+// Defines values for CryptoAssetReachabilityReason.
+const (
+	AmbiguousDispatch        CryptoAssetReachabilityReason = "ambiguous_dispatch"
+	DependencyEntryPointOnly CryptoAssetReachabilityReason = "dependency_entry_point_only"
+	DependencyWithoutGraph   CryptoAssetReachabilityReason = "dependency_without_graph"
+	FindingNotAnnotated      CryptoAssetReachabilityReason = "finding_not_annotated"
+	NoContainingFunction     CryptoAssetReachabilityReason = "no_containing_function"
+	SearchCapped             CryptoAssetReachabilityReason = "search_capped"
+	UnresolvedDispatch       CryptoAssetReachabilityReason = "unresolved_dispatch"
 )
 
 // Defines values for CryptoAssetSource.
@@ -508,6 +524,148 @@ const (
 	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedNone          GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "none"
 	GetV3VulnerabilitiesVulnerabilitiesParamsEncodedUrlEncoded    GetV3VulnerabilitiesVulnerabilitiesParamsEncoded = "url_encoded"
 )
+
+// ApplicationDependency defines model for ApplicationDependency.
+type ApplicationDependency struct {
+	// Direct The project declares this dependency itself.
+	Direct *bool `json:"direct,omitempty"`
+
+	// Extras Python only, informational - the extras the project enables on this dependency.
+	Extras *[]string `json:"extras,omitempty"`
+
+	// Markers Python only, informational: the PEP 508 environment markers under
+	// which the project installs this dependency, as its lock writes
+	// them. The closure is the union of every marker branch; no verdict
+	// reads them.
+	Markers *[]string `json:"markers,omitempty"`
+
+	// Purl Package URL without version (a version in the purl is used when `version` is empty).
+	Purl string `json:"purl"`
+
+	// Requires Purls this dependency depends on in the project's resolved tree,
+	// each pinned elsewhere in `dependencies`. When no entry carries
+	// `requires`, the edges recorded at mining time between the pinned
+	// versions are used. A pinned dependency no edge reaches is placed
+	// directly under the project.
+	Requires *[]string `json:"requires,omitempty"`
+
+	// Version The exact resolved version. Never a range.
+	Version string `json:"version"`
+}
+
+// ApplicationDependencyReachability One pinned dependency, in request order, with its findings and their verdicts.
+type ApplicationDependencyReachability struct {
+	Direct       bool `json:"direct"`
+	FindingCount int  `json:"finding_count"`
+
+	// Findings The dependency's stored findings report, as findings-only
+	// `/component` serves it for that version: the same assets with every
+	// field (columns, `status`, `occurrence_key`, `conditioned_value`,
+	// every rule with its message and severity) and the same
+	// `finding_id`s. Two things differ: `file_path` is prefixed with
+	// `<module>@<version>/` and the file carries `dependency_info`, and
+	// `source` is `indirect` (with `migration` computed for a dependency
+	// finding). Every asset also carries `reachability`, `analysis` and,
+	// when `unknown`, `reachability_reason`. `call_chains` is present
+	// only with `include_call_chains`, never on an `unreachable` asset.
+	// A dependency whose findings report is missing or unreadable, or
+	// whose annotation names no report finding id, is served the
+	// findings rebuilt from its annotation, with the stitch's finding
+	// ids. With `conditioned_rules`, a file of a stored report also
+	// holds the assets a generic finding yields for the values other
+	// members of the closure pass it (unless the file already holds
+	// them): the anchor's span, match and `dependency_info`, the rule's
+	// id, metadata and `purl`, `conditioned_value` and
+	// `parameter_conditions`, the scan's `finding_id` formula, an
+	// `occurrence_key` derived from the anchor's and the value, and a
+	// verdict no stronger than the anchor's (`unknown` with
+	// `ambiguous_dispatch` when the value crosses an interface call with
+	// several implementations). When the value search hit its bounds (32
+	// callers deep, 256 values), the anchor and its assets read
+	// `analysis.call_chains: partial`.
+	Findings []Finding `json:"findings"`
+
+	// InfoCode `READY` — the dependency's graph and annotation were read.
+	// `NO_INFO` — no stored graph or annotation for this exact version.
+	// `UNSUPPORTED_SCHEMA` — stored under a schema this deployment cannot read.
+	InfoCode         ReachabilityInfoCode           `json:"info_code"`
+	InfoMessage      *string                        `json:"info_message,omitempty"`
+	MigrationSummary *[]PQCMigrationSummary         `json:"migration_summary,omitempty"`
+	Purl             string                         `json:"purl"`
+	RulesVersion     *string                        `json:"rules_version,omitempty"`
+	Summary          ApplicationReachabilitySummary `json:"summary"`
+	Version          string                         `json:"version"`
+}
+
+// ApplicationReachabilityRequest Request body of `/reachability/application`, schema version `1`.
+type ApplicationReachabilityRequest struct {
+	// CallSites The project's call sites into its dependencies, as a crypto-finder
+	// graph-fragment document (`schema_version` `graph-fragment-1.x`, not
+	// newer than this deployment reads, else `UNSUPPORTED_SCHEMA`). Only
+	// `functions` that are the caller of an `external_calls` entry, the
+	// `external_calls` themselves (at most
+	// `reachability_db.application.max_call_sites`) and `supertypes` are
+	// read; internal edges and project crypto are ignored, so every
+	// call-site function is a root.
+	CallSites map[string]interface{} `json:"call_sites"`
+
+	// ConditionedRules The client's conditioned rules for the closure's ecosystem
+	// (crypto-finder `pkg/conditioned` catalog). With them the response
+	// also serves, beside a dependency's generic finding on a call whose
+	// selector is a parameter of its function, one asset per rule and
+	// value another member of the closure passes it (bcpkix passes
+	// `"PBKDF-OpenSSL"` to bcprov's `DefaultJcaJceHelper`): the finding
+	// a scan of the merged closure reports, which no scan of the
+	// dependency alone can. A rule that does not parse is
+	// `INVALID_REQUEST`. Absent, nothing is added.
+	ConditionedRules *[]ConditionedRule `json:"conditioned_rules,omitempty"`
+
+	// Dependencies The project's pinned dependency closure, at most
+	// `reachability_db.application.max_dependencies` entries. One version per
+	// purl: two different versions for one purl are `INVALID_REQUEST`.
+	// At least one entry must be `direct`.
+	Dependencies []ApplicationDependency `json:"dependencies"`
+
+	// IncludeCallChains Return each reachable or unknown finding's `call_chains`, from a project call site to the finding.
+	IncludeCallChains *bool `json:"include_call_chains,omitempty"`
+
+	// MaxChainsPerFinding Cap on `call_chains` per finding; 0 is the server cap (128).
+	MaxChainsPerFinding *int `json:"max_chains_per_finding,omitempty"`
+
+	// SchemaVersion Version of this request and of its response. Any other value is `INVALID_REQUEST`.
+	SchemaVersion ApplicationReachabilityRequestSchemaVersion `json:"schema_version"`
+}
+
+// ApplicationReachabilityRequestSchemaVersion Version of this request and of its response. Any other value is `INVALID_REQUEST`.
+type ApplicationReachabilityRequestSchemaVersion string
+
+// ApplicationReachabilityResponse defines model for ApplicationReachabilityResponse.
+type ApplicationReachabilityResponse struct {
+	// Dependencies Exactly one entry per distinct pinned purl, in request order.
+	Dependencies *[]ApplicationDependencyReachability `json:"dependencies,omitempty"`
+
+	// InfoCode `READY` when at least one dependency has data, `NO_INFO` when none
+	// has. `INVALID_REQUEST` and `UNSUPPORTED_SCHEMA` (of `call_sites`)
+	// refuse the whole request without `dependencies`; so does `NO_INFO`
+	// for a timeout or a store failure, with the cause in `info_message`.
+	InfoCode    ReachabilityInfoCode `json:"info_code"`
+	InfoMessage *string              `json:"info_message,omitempty"`
+
+	// RulesVersion Highest `rules_version` among the dependencies with data.
+	RulesVersion  *string `json:"rules_version,omitempty"`
+	SchemaVersion string  `json:"schema_version"`
+
+	// Status Top-level outcome for the request as a whole.
+	Status  StatusResponse                 `json:"status"`
+	Summary ApplicationReachabilitySummary `json:"summary"`
+}
+
+// ApplicationReachabilitySummary defines model for ApplicationReachabilitySummary.
+type ApplicationReachabilitySummary struct {
+	Reachable   int `json:"reachable"`
+	Unknown     int `json:"unknown"`
+	Unreachable int `json:"unreachable"`
+}
 
 // AppliedDependencyOverride One closure node whose recorded version was replaced by a version the
 // client resolved elsewhere in the request — the same asked/served/flag
@@ -1290,6 +1448,27 @@ type ComponentsStatusResponse struct {
 	Status     BatchStatus             `json:"status"`
 }
 
+// ConditionedRule defines model for ConditionedRule.
+type ConditionedRule struct {
+	// CaptureBinders The rule's start-anchored metavariable-regex patterns with named groups.
+	CaptureBinders *[]string `json:"capture_binders,omitempty"`
+
+	// CaptureNames Names of a condition regex's unnamed groups, by position.
+	CaptureNames *[]string `json:"capture_names,omitempty"`
+	Id           string    `json:"id"`
+	Message      *string   `json:"message,omitempty"`
+
+	// Metadata The rule's `metadata.crypto` template with its `parameterCondition`.
+	Metadata map[string]string `json:"metadata"`
+
+	// Purl The package URL the rule names.
+	Purl     *string `json:"purl,omitempty"`
+	Severity *string `json:"severity,omitempty"`
+
+	// Symbols API symbols the rule's patterns call (`javax.crypto.SecretKeyFactory.getInstance`).
+	Symbols []string `json:"symbols"`
+}
+
 // CopyrightDetection defines model for CopyrightDetection.
 type CopyrightDetection struct {
 	// Copyright Detected copyright statement (verbatim).
@@ -1516,7 +1695,9 @@ type CryptoAsset struct {
 	// Reachability Whether an entry point reaches this asset, and how confidently.
 	// Replaced the legacy `reachable` boolean, which a three-state answer
 	// could not express. Present only when the reachability endpoint was
-	// called with `include_call_chains: true`.
+	// called with `include_call_chains: true`, and always on
+	// `/reachability/application`, which serves only `reachable`,
+	// `unreachable` and `unknown` (with `reachability_reason`).
 	//
 	// * `reachable` — a chain from an entry point to this asset was
 	//   established. A self-chain (the containing function alone) never
@@ -1529,6 +1710,31 @@ type CryptoAsset struct {
 	//   component was scanned on its own and there is no consumer code to
 	//   be reached from.
 	Reachability *CryptoAssetReachability `json:"reachability,omitempty"`
+
+	// ReachabilityReason Why `reachability` is `unknown`. Set only by
+	// `/reachability/application`.
+	//
+	// * `ambiguous_dispatch` — the project reaches the finding only
+	//   through an interface call with several implementations in the
+	//   closure: the receiver type is known, the implementation is not.
+	// * `unresolved_dispatch` — only through a call linked by name.
+	// * `search_capped` — the route search hit a bound before deciding.
+	// * `no_containing_function` — the finding sits outside any function
+	//   (a field or static initializer).
+	// * `dependency_entry_point_only` — the project reaches a function
+	//   of the dependency whose mine-time entry-point index lists the
+	//   finding, but no route of calls to the finding exists in the
+	//   stitch.
+	// * `dependency_without_graph` — every dependency path from the
+	//   project to this dependency crosses a pinned dependency with no
+	//   stored graph, whose calls are not in the graph.
+	// * `finding_not_annotated` — the dependency's stored findings
+	//   report holds the finding but its crypto annotation does not, so
+	//   the stitch never saw it.
+	//
+	// A client also uses `unpinned` for a declared dependency it could
+	// not pin; it never reaches this endpoint, which needs a version.
+	ReachabilityReason *CryptoAssetReachabilityReason `json:"reachability_reason,omitempty"`
 
 	// Rules Detection rules for this asset. Omitted when the served findings
 	// bytes did not carry rule identity (older mines, legacy fragments
@@ -1581,7 +1787,9 @@ type CryptoAssetAnalysisParameters string
 // CryptoAssetReachability Whether an entry point reaches this asset, and how confidently.
 // Replaced the legacy `reachable` boolean, which a three-state answer
 // could not express. Present only when the reachability endpoint was
-// called with `include_call_chains: true`.
+// called with `include_call_chains: true`, and always on
+// `/reachability/application`, which serves only `reachable`,
+// `unreachable` and `unknown` (with `reachability_reason`).
 //
 //   - `reachable` — a chain from an entry point to this asset was
 //     established. A self-chain (the containing function alone) never
@@ -1594,6 +1802,31 @@ type CryptoAssetAnalysisParameters string
 //     component was scanned on its own and there is no consumer code to
 //     be reached from.
 type CryptoAssetReachability string
+
+// CryptoAssetReachabilityReason Why `reachability` is `unknown`. Set only by
+// `/reachability/application`.
+//
+//   - `ambiguous_dispatch` — the project reaches the finding only
+//     through an interface call with several implementations in the
+//     closure: the receiver type is known, the implementation is not.
+//   - `unresolved_dispatch` — only through a call linked by name.
+//   - `search_capped` — the route search hit a bound before deciding.
+//   - `no_containing_function` — the finding sits outside any function
+//     (a field or static initializer).
+//   - `dependency_entry_point_only` — the project reaches a function
+//     of the dependency whose mine-time entry-point index lists the
+//     finding, but no route of calls to the finding exists in the
+//     stitch.
+//   - `dependency_without_graph` — every dependency path from the
+//     project to this dependency crosses a pinned dependency with no
+//     stored graph, whose calls are not in the graph.
+//   - `finding_not_annotated` — the dependency's stored findings
+//     report holds the finding but its crypto annotation does not, so
+//     the stitch never saw it.
+//
+// A client also uses `unpinned` for a declared dependency it could
+// not pin; it never reaches this endpoint, which needs a version.
+type CryptoAssetReachabilityReason string
 
 // CryptoAssetSource `direct` for the component's own code, `indirect` for a
 // dependency's. A findings-only `/component` block served from the
@@ -3729,6 +3962,9 @@ type PostV3CryptographyHintsJSONRequestBody = BatchRequest
 
 // PostV3CryptographyHintsRangeJSONRequestBody defines body for PostV3CryptographyHintsRange for application/json ContentType.
 type PostV3CryptographyHintsRangeJSONRequestBody = BatchRequest
+
+// GetApplicationReachabilityJSONRequestBody defines body for GetApplicationReachability for application/json ContentType.
+type GetApplicationReachabilityJSONRequestBody = ApplicationReachabilityRequest
 
 // GetComponentReachabilityJSONRequestBody defines body for GetComponentReachability for application/json ContentType.
 type GetComponentReachabilityJSONRequestBody = ComponentReachabilityRequest
