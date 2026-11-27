@@ -88,6 +88,7 @@ const (
 const (
 	AmbiguousDispatch        CryptoAssetReachabilityReason = "ambiguous_dispatch"
 	DependencyEntryPointOnly CryptoAssetReachabilityReason = "dependency_entry_point_only"
+	DependencyGraphOutdated  CryptoAssetReachabilityReason = "dependency_graph_outdated"
 	DependencyWithoutGraph   CryptoAssetReachabilityReason = "dependency_without_graph"
 	FindingNotAnnotated      CryptoAssetReachabilityReason = "finding_not_annotated"
 	NoContainingFunction     CryptoAssetReachabilityReason = "no_containing_function"
@@ -1728,6 +1729,13 @@ type CryptoAsset struct {
 	// * `dependency_without_graph` — every dependency path from the
 	//   project to this dependency crosses a pinned dependency with no
 	//   stored graph, whose calls are not in the graph.
+	// * `dependency_graph_outdated` — the dependency's own stored graph
+	//   was mined before crypto-finder 1.0 and no route to the finding
+	//   was found in it. Such a graph can miss the links the stitch
+	//   needs, so it cannot prove the finding unreachable; a route found
+	//   in it is still `reachable`. `dependency_without_graph` takes
+	//   precedence. The verdict settles once the dependency is mined
+	//   again.
 	// * `finding_not_annotated` — the dependency's stored findings
 	//   report holds the finding but its crypto annotation does not, so
 	//   the stitch never saw it.
@@ -1820,6 +1828,13 @@ type CryptoAssetReachability string
 //   - `dependency_without_graph` — every dependency path from the
 //     project to this dependency crosses a pinned dependency with no
 //     stored graph, whose calls are not in the graph.
+//   - `dependency_graph_outdated` — the dependency's own stored graph
+//     was mined before crypto-finder 1.0 and no route to the finding
+//     was found in it. Such a graph can miss the links the stitch
+//     needs, so it cannot prove the finding unreachable; a route found
+//     in it is still `reachable`. `dependency_without_graph` takes
+//     precedence. The verdict settles once the dependency is mined
+//     again.
 //   - `finding_not_annotated` — the dependency's stored findings
 //     report holds the finding but its crypto annotation does not, so
 //     the stitch never saw it.
